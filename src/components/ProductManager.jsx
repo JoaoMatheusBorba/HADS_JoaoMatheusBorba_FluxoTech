@@ -3,17 +3,17 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 
-// 1. Recebemos 'dataVersion' e 'onDataChanged' como props do App.jsx
+
 function ProductManager({ dataVersion, onDataChanged }) {
   
-  // Estado para a lista final que vai para a tela
+  
   const [productsWithStock, setProductsWithStock] = useState([]);
   
-  // Estados para os dados brutos
+  
   const [allProducts, setAllProducts] = useState([]);
   const [allMovements, setAllMovements] = useState([]);
   
-  // Outros estados do componente
+  
   const [suppliers, setSuppliers] = useState([]);
   const [formData, setFormData] = useState({ nome: '', preco_venda: '', id_fornecedor: '', estoque_minimo: 0 });
   const [editingId, setEditingId] = useState(null);
@@ -54,14 +54,13 @@ function ProductManager({ dataVersion, onDataChanged }) {
   }, [allProducts, allMovements]); // Depende dos dados brutos
 
   
-  // EFEITO 2: O BUSCADOR
-  // Roda *somente* quando o 'dataVersion' (o sinal do App.jsx) mudar
+  
   useEffect(() => {
     // Busca todos os dados necessários do zero
     fetchProducts();
     fetchSuppliers();
     fetchMovements();
-  }, [dataVersion]); // Depende do 'dataVersion'
+  }, [dataVersion]); 
 
   
   // --- Funções de Busca (Fetch) ---
@@ -87,7 +86,7 @@ function ProductManager({ dataVersion, onDataChanged }) {
   const fetchMovements = async () => {
     const { data, error } = await supabase.from('movimentacoes_estoque').select('id_produto, tipo, quantidade');
     if (error) console.error('Erro ao buscar movimentações:', error.message);
-    else setAllMovements(data); // Salva em 'allMovements'
+    else setAllMovements(data); 
   };
 
   // --- Funções do Formulário (CRUD) ---
@@ -225,10 +224,10 @@ function ProductManager({ dataVersion, onDataChanged }) {
       
       <h3>Produtos em Estoque (com Saldo)</h3>
       
-      {/* 4. O botão de atualizar não é mais necessário! */}
+      {}
 
       <ul>
-        {/* Mapeamos o 'productsWithStock' que é calculado automaticamente */}
+        {}
         {productsWithStock.map(product => (
           <li key={product.id}>
             {product.nome} - R$ {product.preco_venda}
