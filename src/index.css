@@ -1,0 +1,158 @@
+/* src/index.css */
+
+/* Reset básico e fonte padrão */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
+    Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f4f7f6;
+  color: #333;
+}
+
+/* Remove o padding padrão da lista */
+ul {
+  padding-left: 20px;
+}
+
+/* Estilo dos Títulos */
+h1, h2, h3, h4, h5, h6 {
+  color: #2c3e50;
+}
+
+h1 {
+  font-size: 2rem;
+  margin-bottom: 0;
+}
+h3 {
+  border-bottom: 2px solid #ecf0f1;
+  padding-bottom: 10px;
+  margin-top: 30px;
+}
+
+/* --- Estilos dos Formulários --- */
+
+form {
+  background-color: #ffffff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 15px;
+  display: flex; /* Muda o layout do formulário */
+  flex-wrap: wrap; /* Permite que os itens quebrem a linha */
+  gap: 15px; /* Espaço entre os itens do formulário */
+  align-items: center; /* Alinha os itens verticalmente */
+}
+
+/* Faz com que cada "campo" (label + input) fique em uma linha */
+form label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 5px;
+  color: #555;
+  width: 100%; /* Faz a label ocupar a linha */
+}
+
+/* Organiza o input e a label */
+form > div {
+  width: calc(50% - 10px); /* Ocupa metade do espaço (para 2 colunas) */
+  display: flex;
+  flex-direction: column;
+}
+
+form input[type='text'],
+form input[type='password'],
+form input[type='email'],
+form input[type='number'],
+form select {
+  width: 100%; /* Ocupa 100% do 'div' pai */
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box; /* Garante que o padding não quebre o layout */
+}
+
+/* --- Estilos dos Botões --- */
+
+button {
+  background-color: #3498db; /* Azul */
+  color: white;
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+button:hover {
+  background-color: #2980b9;
+}
+
+/* Botão de Excluir (Vermelho) */
+button:hover:nth-of-type(2) {
+  background-color: #c0392b; /* Vermelho Escuro */
+}
+
+/* Botão de Cancelar (Cinza) */
+button[type='button'] {
+  background-color: #95a5a6;
+}
+button[type='button']:hover {
+  background-color: #7f8c8d;
+}
+
+/* --- Estilos das Listas (Tabelas) --- */
+li {
+  list-style: none; /* Remove a bolinha */
+  background-color: #ffffff;
+  border: 1px solid #ddd;
+  padding: 15px;
+  margin-bottom: 10px;
+  border-radius: 5px;
+  display: flex;
+  justify-content: space-between; /* Alinha o texto e os botões */
+  align-items: center;
+}
+
+/* Div para os botões de ação na lista */
+li div {
+  display: flex;
+  gap: 10px;
+}
+
+/* --- Estilos da Navbar --- */
+nav {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  background-color: #34495e; /* Cor escura */
+  border-bottom: 2px solid #2c3e50;
+}
+
+nav a { /* Links da Navbar */
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+nav a:hover {
+  text-decoration: underline;
+}
+
+nav button { /* Botão de Logout na Navbar */
+  margin-left: auto; /* Joga o botão para a direita */
+  background-color: #e74c3c; /* Vermelho */
+}
+nav button:hover {
+  background-color: #c0392b;
+}
+
+/* --- Estilo do Layout Principal --- */
+.main-content {
+  padding: 20px;
+  max-width: 1200px; /* Limita a largura do conteúdo */
+  margin: 0 auto; /* Centraliza o conteúdo */
+}
