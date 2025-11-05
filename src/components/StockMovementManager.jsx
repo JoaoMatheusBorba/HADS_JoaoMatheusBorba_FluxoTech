@@ -30,7 +30,7 @@ function StockMovementManager({ onDataChanged }) {
 
   // Busca o histórico de movimentações (o log)
   const fetchMovements = async () => {
-    // Queremos o log, com o nome do produto (join) e ordenado do mais novo para o mais antigo
+    
     const { data, error } = await supabase
       .from('movimentacoes_estoque')
       .select(`
@@ -82,7 +82,7 @@ function StockMovementManager({ onDataChanged }) {
     }
   };
 
-  // Função para formatar a data (opcional, mas fica bonito)
+  // Função para formatar a data 
   const formatDateTime = (dateTimeString) => {
     const options = {
       year: 'numeric', month: '2-digit', day: '2-digit',
