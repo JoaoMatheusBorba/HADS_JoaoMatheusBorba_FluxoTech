@@ -1,17 +1,16 @@
 // src/App.jsx
 
 import React from 'react';
-import { useOutletContext } from 'react-router-dom'; // Para pegar as props!
+import { useOutletContext } from 'react-router-dom'; 
 import ProductManager from './components/ProductManager.jsx';
 
 function App() {
-  // Pega as props (dataVersion, onDataChanged) do "Pai" (MainLayout)
+  
   const { dataVersion, onDataChanged } = useOutletContext();
 
   return (
     <div>
-      {/* O App.jsx agora é SÓ o Dashboard de Produtos.
-        Todo o resto (login, logout, outros managers) foi movido.
+      {/* O App.jsx fica como dashboard apenas
       */}
       <ProductManager 
         dataVersion={dataVersion} 
