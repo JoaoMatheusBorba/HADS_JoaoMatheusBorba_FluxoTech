@@ -1,31 +1,31 @@
 // src/main.jsx
 
-import React, { useState } from 'react'; // Importamos o useState
+import React, { useState } from 'react'; 
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 
-// Nossas páginas e layouts
+
 import App from './App.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import SignUpPage from './pages/SignUpPage.jsx';
-import MainLayout from './components/MainLayout.jsx'; // Nosso "molde"
-import FornecedoresPage from './pages/FornecedoresPage.jsx'; // Nova página
-import MovimentacoesPage from './pages/MovimentacoesPage.jsx'; // Nova página
+import MainLayout from './components/MainLayout.jsx'; // "molde"
+import FornecedoresPage from './pages/FornecedoresPage.jsx'; 
+import MovimentacoesPage from './pages/MovimentacoesPage.jsx'; 
 
 import './index.css';
 
-// Hook personalizado para gerenciar o estado global
+
 function Root() {
-  // A LÓGICA DE ATUALIZAÇÃO (o 'sinal') sobe para o topo!
+  
   const [dataVersion, setDataVersion] = useState(0);
   const refreshData = () => {
     setDataVersion(version => version + 1);
   };
 
-  // Esta é a nova estrutura de rotas (MUITO IMPORTANTE)
+  
   const router = createBrowserRouter([
     {
-      // Rotas de Login/Cadastro (fora do layout principal)
+      
       path: "/login",
       element: <LoginPage />,
     },
@@ -34,8 +34,7 @@ function Root() {
       element: <SignUpPage />,
     },
     {
-      // Rotas Protegidas (dentro do MainLayout)
-      path: "/", // A "raiz" agora é o Layout
+      path: "/", 
       element: (
         <MainLayout 
           dataVersion={dataVersion} 
@@ -43,12 +42,12 @@ function Root() {
         />
       ),
       children: [
-        // O "filho" da rota "/" será o App.jsx (Dashboard)
+        
         {
-          index: true, // Isso marca como a página padrão
+          index: true, 
           element: <App />,
         },
-        // As outras páginas "filhas"
+       
         {
           path: "/fornecedores",
           element: <FornecedoresPage />,
