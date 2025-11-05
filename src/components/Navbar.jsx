@@ -13,7 +13,7 @@ function Navbar() {
     else navigate('/login');
   };
 
-  // Os estilos foram movidos para o index.css
+  
   return (
     <nav>
       <Link to="/">Dashboard (Produtos)</Link>
