@@ -1,31 +1,43 @@
-// src/main.jsx
-
-import React, { useState } from 'react'; // Importamos o useState
+import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 
-// Nossas páginas e layouts
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+
 import App from './App.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import SignUpPage from './pages/SignUpPage.jsx';
-import MainLayout from './components/MainLayout.jsx'; // Nosso "molde"
-import FornecedoresPage from './pages/FornecedoresPage.jsx'; // Nova página
-import MovimentacoesPage from './pages/MovimentacoesPage.jsx'; // Nova página
+import MainLayout from './components/MainLayout.jsx'; 
+import ProdutosPage from './pages/ProdutosPage.jsx';
+import FornecedoresPage from './pages/FornecedoresPage.jsx';
+import MovimentacoesPage from './pages/MovimentacoesPage.jsx';
+import ComprasPage from './pages/ComprasPage.jsx';
+import VendasPage from './pages/VendasPage.jsx';
 
 import './index.css';
 
-// Hook personalizado para gerenciar o estado global
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#3498db',
+    },
+    secondary: {
+      main: '#e74c3c',
+    },
+  },
+});
+
 function Root() {
-  // A LÓGICA DE ATUALIZAÇÃO (o 'sinal') sobe para o topo!
   const [dataVersion, setDataVersion] = useState(0);
   const refreshData = () => {
     setDataVersion(version => version + 1);
   };
 
-  // Esta é a nova estrutura de rotas (MUITO IMPORTANTE)
   const router = createBrowserRouter([
     {
-      // Rotas de Login/Cadastro (fora do layout principal)
       path: "/login",
       element: <LoginPage />,
     },
@@ -34,8 +46,7 @@ function Root() {
       element: <SignUpPage />,
     },
     {
-      // Rotas Protegidas (dentro do MainLayout)
-      path: "/", // A "raiz" agora é o Layout
+      path: "/", 
       element: (
         <MainLayout 
           dataVersion={dataVersion} 
@@ -43,20 +54,12 @@ function Root() {
         />
       ),
       children: [
-        // O "filho" da rota "/" será o App.jsx (Dashboard)
-        {
-          index: true, // Isso marca como a página padrão
-          element: <App />,
-        },
-        // As outras páginas "filhas"
-        {
-          path: "/fornecedores",
-          element: <FornecedoresPage />,
-        },
-        {
-          path: "/movimentacoes",
-          element: <MovimentacoesPage />,
-        },
+        { index: true, element: <App /> },
+        { path: "/produtos", element: <ProdutosPage /> },
+        { path: "/fornecedores", element: <FornecedoresPage /> },
+        { path: "/movimentacoes", element: <MovimentacoesPage /> },
+        { path: "/compras", element: <ComprasPage /> },
+        { path: "/vendas", element: <VendasPage /> },
       ],
     },
   ]);
@@ -66,6 +69,11 @@ function Root() {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <Root />
+    <ThemeProvider theme={theme}>
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <CssBaseline />
+        <Root />
+      </LocalizationProvider>
+    </ThemeProvider>
   </React.StrictMode>,
 );

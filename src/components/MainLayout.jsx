@@ -1,7 +1,7 @@
 // src/components/MainLayout.jsx
 
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Outlet } from 'react-router-dom'; // NOVO: Importamos o 'Outlet'
+import { useNavigate, Outlet } from 'react-router-dom'; 
 import { supabase } from '../supabaseClient';
 import Navbar from './Navbar.jsx'; // Importamos nossa Navbar
 
