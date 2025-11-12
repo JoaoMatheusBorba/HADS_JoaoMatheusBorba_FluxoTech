@@ -1,15 +1,15 @@
-// src/components/MainLayout.jsx
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Outlet } from 'react-router-dom'; 
 import { supabase } from '../supabaseClient';
-import Navbar from './Navbar.jsx'; // Importamos nossa Navbar
+import Navbar from './Navbar.jsx';
 
-function MainLayout({ onDataChanged, dataVersion }) {
+import { Box, CircularProgress } from '@mui/material';
+
+function MainLayout({ dataVersion, onDataChanged }) {
   const [session, setSession] = useState(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
@@ -17,6 +17,7 @@ function MainLayout({ onDataChanged, dataVersion }) {
       } else {
         navigate('/login');
       }
+      setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -31,18 +32,20 @@ function MainLayout({ onDataChanged, dataVersion }) {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  if (!session) {
-    return <p>Carregando...</p>;
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
   }
 
-  
- return (
+  return (
     <div>
       <Navbar />
-      {}
-      <div className="main-content"> 
+      <Box className="main-content" component="main" sx={{ p: 3 }}>
         <Outlet context={{ dataVersion, onDataChanged }} />
-      </div>
+      </Box>
     </div>
   );
 }

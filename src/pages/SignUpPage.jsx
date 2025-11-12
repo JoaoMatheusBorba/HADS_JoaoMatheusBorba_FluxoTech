@@ -1,38 +1,29 @@
-// src/pages/SignUpPage.jsx
-
-// 1. Importamos o 'useState' para guardar os dados do formulário
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../supabaseClient';
 
-// 2. Importamos o cliente supabase que criamos
-import { supabase } from '../supabaseClient'; 
-// (Usamos '../' para "voltar" uma pasta, já que estamos em src/pages)
+import { TextField, Button, Container, Typography, Box, Link, Grid, Paper } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
 
 function SignUpPage() {
-  // 3. Criamos os "estados" para email e senha
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
-  // 4. Criamos a função que será chamada no submit do formulário
   const handleSignUp = async (event) => {
-    // previne que a página recarregue ao enviar o formulário
-    event.preventDefault(); 
+    event.preventDefault();
 
     try {
-      // 5. Usamos a função de 'signUp' do Supabase
       const { data, error } = await supabase.auth.signUp({
         email: email,
         password: password,
       });
 
       if (error) {
-        // 6. Se der erro, mostramos no console e em um alerta
-        console.error('Erro no cadastro:', error.message);
         alert('Erro ao cadastrar: ' + error.message);
       } else {
-        // 7. Se der certo, avisamos o usuário!
-        alert('Cadastro realizado com sucesso! Você pode fazer o login.');
-        // Aqui poderíamos redirecionar o usuário, mas vamos fazer isso depois
+        alert('Cadastro realizado com sucesso! Pode fazer o login.');
+        navigate('/login');
       }
     } catch (error) {
       alert('Erro inesperado: ' + error.message);
@@ -40,30 +31,57 @@ function SignUpPage() {
   };
 
   return (
-    <div>
-      <h2>Cadastro</h2>
-      {/* 8. Ligamos a função handleSignUp ao 'onSubmit' do formulário */}
-      <form onSubmit={handleSignUp}>
-        <label>Email:</label>
-        {/* 9. Ligamos os inputs aos seus respectivos 'estados' */}
-        <input
-          type="email"
+    <Container maxWidth="xs" sx={{ mt: 8, boxShadow: 3, p: 4, borderRadius: 2, bgcolor: 'background.paper' }}>
+      <Typography variant="h5" component="h1" align="center" gutterBottom>
+        Cadastro - SIGE
+      </Typography>
+      
+      <Box component="form" onSubmit={handleSignUp} noValidate sx={{ mt: 3 }}>
+        <TextField
+          label="Email"
+          variant="filled"
+          margin="normal"
+          required
+          fullWidth
+          id="email"
+          name="email"
+          autoComplete="email"
+          autoFocus
           value={email}
-          onChange={(e) => setEmail(e.target.value)} // Atualiza o estado 'email'
-          required
+          onChange={(e) => setEmail(e.target.value)}
         />
-        <br />
-        <label>Senha:</label>
-        <input
+        <TextField
+          label="Senha (mínimo 6 caracteres)"
           type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)} // Atualiza o estado 'password'
+          variant="filled"
+          margin="normal"
           required
+          fullWidth
+          name="password"
+          id="password"
+          autoComplete="new-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
         />
-        <br />
-        <button type="submit">Cadastrar</button>
-      </form>
-    </div>
+        <Button
+          type="submit"
+          variant="contained"
+          color="primary"
+          fullWidth
+          sx={{ mt: 3, mb: 2, py: 1.5 }}
+        >
+          Cadastrar
+        </Button>
+
+        <Grid container justifyContent="flex-end">
+          <Grid item>
+            <Link component={RouterLink} to="/login" variant="body2">
+              Já tem uma conta? Faça login
+            </Link>
+          </Grid>
+        </Grid>
+      </Box>
+    </Container>
   );
 }
 

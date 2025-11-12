@@ -1,32 +1,53 @@
-// src/components/SupplierManager.jsx
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
+import { useOutletContext } from 'react-router-dom';
+
+import { 
+  Box, 
+  Grid, 
+  Paper, 
+  Typography, 
+  TextField, 
+  Button, 
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton
+} from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CloseIcon from '@mui/icons-material/Close';
 
 function SupplierManager() {
-  // Estados para a lista de fornecedores e o formulário
   const [suppliers, setSuppliers] = useState([]);
   const [formData, setFormData] = useState({ 
-    nome: '', 
+    nome_fantasia: '', 
     cnpj_cpf: '', 
     telefone: '' 
   });
-  const [editingId, setEditingId] = useState(null); // Para controlar a edição
+  const [editingId, setEditingId] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  const { dataVersion } = useOutletContext();
 
-  // Busca os fornecedores ao carregar o componente
   useEffect(() => {
     fetchSuppliers();
-  }, []);
+  }, [dataVersion]); 
 
-  // READ: Função para buscar os fornecedores
   const fetchSuppliers = async () => {
-    // A única mudança é aqui: .from('fornecedores')
     const { data, error } = await supabase.from('fornecedores').select('*');
     if (error) console.error('Erro ao buscar fornecedores:', error.message);
     else setSuppliers(data);
   };
 
-  // Função para lidar com mudanças no formulário
   const handleFormChange = (event) => {
     const { name, value } = event.target;
     setFormData(prevData => ({
@@ -35,132 +56,193 @@ function SupplierManager() {
     }));
   };
 
-  // Função 'Submit' unificada (Cria ou Atualiza)
   const handleSubmit = async (event) => {
     event.preventDefault();
 
     if (editingId) {
-      // UPDATE: Lógica de Atualizar
       const { error } = await supabase
         .from('fornecedores')
-        .update(formData) // formData já tem os nomes corretos das colunas
+        .update(formData)
         .match({ id: editingId });
 
       if (error) {
         alert('Erro ao atualizar fornecedor: ' + error.message);
       } else {
         alert('Fornecedor atualizado com sucesso!');
-        setSuppliers(suppliers.map(s => 
-          s.id === editingId ? { ...s, ...formData } : s
-        ));
       }
-      setEditingId(null);
-
     } else {
-      // CREATE: Lógica de Criar
       const { data, error } = await supabase
         .from('fornecedores')
-        .insert([formData])
-        .select();
+        .insert([formData]);
 
       if (error) {
         alert('Erro ao adicionar fornecedor: ' + error.message);
       } else {
         alert('Fornecedor adicionado com sucesso!');
-        setSuppliers(prevSuppliers => [...prevSuppliers, ...data]);
       }
     }
-    // Limpa o formulário
-    setFormData({ nome: '', cnpj_cpf: '', telefone: '' });
+    
+    handleCloseModal();
+    fetchSuppliers();
   };
 
-  // DELETE: Lógica de Excluir
   const handleDelete = async (supplierId) => {
+    const { data, error } = await supabase
+      .from('produtos')
+      .select('id')
+      .eq('id_fornecedor', supplierId)
+      .limit(1);
+
+    if (data && data.length > 0) {
+      alert('Não é possível excluir este fornecedor, pois ele está associado a um ou mais produtos.');
+      return;
+    }
+
     if (window.confirm('Tem certeza que deseja excluir este fornecedor?')) {
-      const { error } = await supabase
+      const { error: deleteError } = await supabase
         .from('fornecedores')
         .delete()
         .match({ id: supplierId });
 
-      if (error) {
-        alert('Erro ao excluir fornecedor: ' + error.message);
+      if (deleteError) {
+        alert('Erro ao excluir fornecedor: ' + deleteError.message);
       } else {
         alert('Fornecedor excluído com sucesso!');
-        setSuppliers(suppliers.filter(s => s.id !== supplierId));
+        fetchSuppliers();
       }
     }
   };
 
-  // Função para entrar no "modo de edição"
-  const startEditing = (supplier) => {
-    setEditingId(supplier.id);
-    setFormData({
-      nome: supplier.nome,
-      cnpj_cpf: supplier.cnpj_cpf || '', // Usa '' se for null
-      telefone: supplier.telefone || ''  // Usa '' se for null
-    });
+  const handleOpenModal = (supplier = null) => {
+    if (supplier) {
+      setEditingId(supplier.id);
+      setFormData({
+        nome_fantasia: supplier.nome_fantasia,
+        cnpj_cpf: supplier.cnpj_cpf || '',
+        telefone: supplier.telefone || ''
+      });
+    } else {
+      setEditingId(null);
+      setFormData({ 
+        nome_fantasia: '', 
+        cnpj_cpf: '', 
+        telefone: '' 
+      });
+    }
+    setIsModalOpen(true);
   };
 
-  // Função para cancelar a edição
-  const cancelEditing = () => {
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
     setEditingId(null);
-    setFormData({ nome: '', cnpj_cpf: '', telefone: '' });
   };
 
   return (
-    <div>
-      <hr style={{ marginTop: '30px' }} />
-      <h3>{editingId ? 'Editar Fornecedor' : 'Cadastro de Fornecedores'}</h3>
-      <form onSubmit={handleSubmit}>
-        <label>Nome Fantasia:</label>
-        <input
-          type="text"
-          name="nome" // Deve ser igual ao nome da coluna
-          value={formData.nome}
-          onChange={handleFormChange}
-          required
-        />
-        <label>CNPJ/CPF:</label>
-        <input
-          type="text"
-          name="cnpj_cpf" // Deve ser igual ao nome da coluna
-          value={formData.cnpj_cpf}
-          onChange={handleFormChange}
-        />
-        <label>Telefone:</label>
-        <input
-          type="text"
-          name="telefone" // Deve ser igual ao nome da coluna
-          value={formData.telefone}
-          onChange={handleFormChange}
-        />
-        
-        <button type="submit">
-          {editingId ? 'Atualizar Fornecedor' : 'Adicionar Fornecedor'}
-        </button>
-        {editingId && (
-          <button type="button" onClick={cancelEditing}>
-            Cancelar Edição
-          </button>
-        )}
-      </form>
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
+          Gestão de Fornecedores
+        </Typography>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          startIcon={<AddIcon />}
+          onClick={() => handleOpenModal()}
+          sx={{ py: 1.5, px: 3 }}
+        >
+          Novo Fornecedor
+        </Button>
+      </Box>
 
-      <hr />
-      
-      <h3>Fornecedores Cadastrados</h3>
-      <ul>
-        {suppliers.map(supplier => (
-          <li key={supplier.id}>
-            <strong>{supplier.nome}</strong>
-            {' - CNPJ/CPF: '}{supplier.cnpj_cpf}
-            {' - Tel: '}{supplier.telefone}
-            
-            <button onClick={() => startEditing(supplier)}>Editar</button>
-            <button onClick={() => handleDelete(supplier.id)}>Excluir</button>
-          </li>
-        ))}
-      </ul>
-    </div>
+      <TableContainer component={Paper} elevation={3} variant="outlined">
+        <Table sx={{ minWidth: 650 }} aria-label="Tabela de Fornecedores">
+          <TableHead sx={{ bgcolor: 'grey.100' }}>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 'bold' }}>Nome Fantasia</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>CNPJ/CPF</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Telefone</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }} align="center">Ações</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {suppliers.map((supplier) => (
+              <TableRow key={supplier.id} hover>
+                <TableCell component="th" scope="row">
+                  {supplier.nome_fantasia}
+                </TableCell>
+                <TableCell>{supplier.cnpj_cpf}</TableCell>
+                <TableCell>{supplier.telefone}</TableCell>
+                <TableCell align="center">
+                  <IconButton color="primary" onClick={() => handleOpenModal(supplier)}>
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton color="secondary" onClick={() => handleDelete(supplier.id)}>
+                    <DeleteIcon />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <Dialog open={isModalOpen} onClose={handleCloseModal} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {editingId ? 'Editar Fornecedor' : 'Cadastrar Novo Fornecedor'}
+          <IconButton onClick={handleCloseModal}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Box component="form" onSubmit={handleSubmit} id="supplier-form" sx={{ pt: 2 }}>
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <TextField
+                  label="Nome Fantasia"
+                  name="nome_fantasia"
+                  value={formData.nome_fantasia}
+                  onChange={handleFormChange}
+                  required 
+                  fullWidth 
+                  variant="standard"
+                  autoFocus
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="CNPJ/CPF"
+                  name="cnpj_cpf" 
+                  value={formData.cnpj_cpf} 
+                  onChange={handleFormChange}
+                  fullWidth 
+                  variant="standard"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Telefone"
+                  name="telefone" 
+                  value={formData.telefone} 
+                  onChange={handleFormChange}
+                  fullWidth 
+                  variant="standard"
+                />
+              </Grid>
+            </Grid>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={handleCloseModal} color="secondary">Cancelar</Button>
+          <Button 
+            type="submit" 
+            form="supplier-form" 
+            variant="contained"
+          >
+            {editingId ? 'Salvar Alterações' : 'Salvar Fornecedor'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 }
 

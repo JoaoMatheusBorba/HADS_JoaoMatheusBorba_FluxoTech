@@ -19,82 +19,149 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  CircularProgress
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton
 } from '@mui/material';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import SearchIcon from '@mui/icons-material/Search';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CloseIcon from '@mui/icons-material/Close';
 
-function StockMovementManager() {
-  const { onDataChanged } = useOutletContext();
+function ProductManager() {
+  const { dataVersion, onDataChanged } = useOutletContext();
   
-  const [movements, setMovements] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(false);
-
-  const [filters, setFilters] = useState({
-    productId: '',
-    type: '',
-    startDate: null,
-    endDate: null
+  const [productsWithStock, setProductsWithStock] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
+  const [allMovements, setAllMovements] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  
+  const [formData, setFormData] = useState({ 
+    nome: '', 
+    preco_venda: '', 
+    id_fornecedor: '', 
+    estoque_minimo: 0,
+    preco_custo: ''
   });
+  
+  const [editingId, setEditingId] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
+    const calculateStock = () => {
+      const calculatedData = allProducts.map(product => {
+        const movementsForProduct = allMovements.filter(mov => mov.id_produto === product.id);
+        const totalEntrada = movementsForProduct.filter(mov => mov.tipo === 'ENTRADA').reduce((sum, mov) => sum + mov.quantidade, 0);
+        const totalSaida = movementsForProduct.filter(mov => mov.tipo === 'SAIDA').reduce((sum, mov) => sum + mov.quantidade, 0);
+        const estoqueAtual = totalEntrada - totalSaida;
+        return { ...product, estoqueAtual: estoqueAtual };
+      });
+      setProductsWithStock(calculatedData);
+    };
+    calculateStock();
+  }, [allProducts, allMovements]);
+
+  
+  useEffect(() => {
     fetchProducts();
-  }, []); 
+    fetchSuppliers();
+    fetchMovements();
+  }, [dataVersion]); 
 
+  
   const fetchProducts = async () => {
-    const { data, error } = await supabase.from('produtos').select('id, nome');
+    const { data, error } = await supabase.from('produtos').select(`*, fornecedores (nome_fantasia)`);
     if (error) console.error('Erro ao buscar produtos:', error.message);
-    else setProducts(data);
+    else setAllProducts(data);
+  };
+  const fetchSuppliers = async () => {
+    const { data, error } = await supabase.from('fornecedores').select('*');
+    if (error) console.error('Erro ao buscar fornecedores:', error.message);
+    else setSuppliers(data);
+  };
+  const fetchMovements = async () => {
+    const { data, error } = await supabase.from('movimentacoes_estoque').select('id_produto, tipo, quantidade');
+    if (error) console.error('Erro ao buscar movimentações:', error.message);
+    else setAllMovements(data);
   };
 
-  const handleFilterChange = (event) => {
+  const handleFormChange = (event) => {
     const { name, value } = event.target;
-    setFilters(prev => ({ ...prev, [name]: value }));
+    setFormData(prevData => ({
+      ...prevData,
+      [name]: value
+    }));
   };
 
-  const handleSearch = async () => {
-    setLoading(true);
-    setMovements([]); 
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    
+    const productData = {
+      nome: formData.nome,
+      preco_venda: formData.preco_venda,
+      id_fornecedor: formData.id_fornecedor || null,
+      estoque_minimo: formData.estoque_minimo || 0,
+      preco_custo: formData.preco_custo || 0
+    };
 
-    let query = supabase
-      .from('movimentacoes_estoque')
-      .select(`
-        *, 
-        produtos (
-          nome, 
-          preco_venda, 
-          preco_custo
-        )
-      `)
-      .order('created_at', { ascending: false });
-
-    if (filters.productId) {
-      query = query.eq('id_produto', filters.productId);
-    }
-    if (filters.type) {
-      query = query.eq('tipo', filters.type);
-    }
-    if (filters.startDate) {
-      query = query.gte('created_at', filters.startDate.toISOString());
-    }
-    if (filters.endDate) {
-      query = query.lte('created_at', filters.endDate.toISOString());
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      alert('Erro ao buscar movimentações: ' + error.message);
+    if (editingId) {
+      const { error } = await supabase.from('produtos').update(productData).match({ id: editingId });
+      if (error) alert('Erro ao atualizar produto: ' + error.message);
+      else alert('Produto atualizado com sucesso!');
     } else {
-      setMovements(data);
+      const { error } = await supabase.from('produtos').insert([productData]);
+      if (error) alert('Erro ao adicionar produto: ' + error.message);
+      else alert('Produto adicionado com sucesso!');
     }
-    setLoading(false);
+    
+    handleCloseModal();
+    onDataChanged(); 
   };
 
-  const formatDateTime = (dateTimeString) => {
-    const options = { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' };
-    return new Date(dateTimeString).toLocaleString('pt-BR', options);
+  const handleDelete = async (productId) => {
+    const { data: movements, error: moveError } = await supabase.from('movimentacoes_estoque').select('id').eq('id_produto', productId).limit(1);
+    if (moveError) { alert('Erro ao verificar movimentações: ' + moveError.message); return; }
+    if (movements && movements.length > 0) { alert('Não é possível excluir este produto, pois ele já possui movimentações de estoque.'); return; }
+
+    if (window.confirm('Tem certeza que deseja excluir este produto? (Ação irreversível)')) {
+      const { error } = await supabase.from('produtos').delete().match({ id: productId });
+      if (error) alert('Erro ao excluir produto: ' + error.message);
+      else {
+        alert('Produto excluído com sucesso!');
+        onDataChanged();
+      }
+    }
+  };
+
+  const handleOpenModal = (product = null) => {
+    if (product) {
+      setEditingId(product.id);
+      setFormData({ 
+        nome: product.nome, 
+        preco_venda: product.preco_venda,
+        id_fornecedor: product.id_fornecedor || '',
+        estoque_minimo: product.estoque_minimo || 0,
+        preco_custo: product.preco_custo || ''
+      });
+    } else {
+      setEditingId(null);
+      setFormData({ 
+        nome: '', 
+        preco_venda: '', 
+        id_fornecedor: '', 
+        estoque_minimo: 0,
+        preco_custo: ''
+      });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingId(null);
   };
   
   const formatCurrency = (value) => {
@@ -102,150 +169,158 @@ function StockMovementManager() {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
-  const calculateProfit = (sale) => {
-    if (!sale.produtos) return 0;
-    const precoVenda = sale.produtos.preco_venda || 0;
-    const precoCusto = sale.produtos.preco_custo || 0;
-    return (precoVenda - precoCusto) * sale.quantidade;
-  };
-
   return (
     <Box>
-      <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
-        Histórico de Movimentações
-      </Typography>
-
-      <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
-        <Typography variant="h6" gutterBottom>
-          Consultar Histórico
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
+          Gestão de Produtos
         </Typography>
-        <Grid container spacing={2} sx={{ mt: 1 }} alignItems="center">
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <FormControl fullWidth variant="outlined">
-              <InputLabel id="filter-produto-label">Filtrar por Produto</InputLabel>
-              <Select
-                labelId="filter-produto-label"
-                name="productId"
-                value={filters.productId}
-                onChange={handleFilterChange}
-                label="Filtrar por Produto"
-              >
-                <MenuItem value=""><em>Todos</em></MenuItem>
-                {products.map(product => (
-                  <MenuItem key={product.id} value={product.id}>{product.nome}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <FormControl fullWidth variant="outlined">
-              <InputLabel id="filter-tipo-label">Filtrar por Tipo</InputLabel>
-              <Select
-                labelId="filter-tipo-label"
-                name="type"
-                value={filters.type}
-                onChange={handleFilterChange}
-                label="Filtrar por Tipo"
-              >
-                <MenuItem value=""><em>Todos</em></MenuItem>
-                <MenuItem value="ENTRADA">Compras</MenuItem>
-                <MenuItem value="SAIDA">Vendas</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={2}>
-            <DatePicker
-              label="De"
-              value={filters.startDate}
-              onChange={(newValue) => setFilters(prev => ({ ...prev, startDate: newValue }))}
-              renderInput={(params) => <TextField {...params} fullWidth variant="outlined" />}
-            />
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={2}>
-            <DatePicker
-              label="Até"
-              value={filters.endDate}
-              onChange={(newValue) => setFilters(prev => ({ ...prev, endDate: newValue }))}
-              renderInput={(params) => <TextField {...params} fullWidth variant="outlined" />}
-            />
-          </Grid>
-          
-          <Grid item xs={12} md={2}>
-            <Button 
-              variant="contained" 
-              color="primary"
-              onClick={handleSearch} 
-              sx={{ height: '56px', width: '100%' }} 
-              disabled={loading} 
-            >
-              {loading ? <CircularProgress size={24} color="inherit" /> : <SearchIcon />}
-            </Button>
-          </Grid>
-        </Grid>
-      </Paper>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          startIcon={<AddIcon />}
+          onClick={() => handleOpenModal()}
+          sx={{ py: 1.5, px: 3 }}
+        >
+          Novo Produto
+        </Button>
+      </Box>
 
       <TableContainer component={Paper} elevation={3} variant="outlined">
-        <Table sx={{ minWidth: 650 }} aria-label="Resultados da Busca">
+        <Table sx={{ minWidth: 650 }} aria-label="Tabela de Produtos">
           <TableHead sx={{ bgcolor: 'grey.100' }}>
             <TableRow>
-              <TableCell sx={{ fontWeight: 'bold' }}>Data/Hora</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Produto</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Tipo</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }} align="right">Qtd.</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Motivo</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }} align="right">Lucro (R$)</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }} align="right">Saldo Atual</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }} align="right">Estoque Mínimo</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }} align="right">Preço de Custo</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }} align="right">Preço de Venda</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Fornecedor</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }} align="center">Ações</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center"><CircularProgress /></TableCell>
-              </TableRow>
-            ) : movements.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} align="center">
-                  Nenhum resultado. Use os filtros acima para buscar.
+            {productsWithStock.map((product) => (
+              <TableRow key={product.id} hover>
+                <TableCell component="th" scope="row">
+                  {product.nome}
+                </TableCell>
+                <TableCell align="right">
+                  <Typography variant="body2" sx={{ 
+                    fontWeight: 'bold', 
+                    color: (product.estoque_minimo > 0 && product.estoqueAtual <= product.estoque_minimo) ? 'error.main' : 'text.primary'
+                  }}>
+                    {product.estoqueAtual}
+                    {(product.estoque_minimo > 0 && product.estoqueAtual <= product.estoque_minimo) && ' (BAIXO!)'}
+                  </Typography>
+                </TableCell>
+                <TableCell align="right">{product.estoque_minimo}</TableCell>
+                <TableCell align="right">{formatCurrency(product.preco_custo)}</TableCell>
+                <TableCell align="right">{formatCurrency(product.preco_venda)}</TableCell>
+                <TableCell>{product.fornecedores ? product.fornecedores.nome_fantasia : '—'}</TableCell>
+                <TableCell align="center">
+                  <IconButton color="primary" onClick={() => handleOpenModal(product)}>
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton color="secondary" onClick={() => handleDelete(product.id)}>
+                    <DeleteIcon />
+                  </IconButton>
                 </TableCell>
               </TableRow>
-            ) : (
-              movements.map((mov) => (
-                <TableRow key={mov.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                  <TableCell>{formatDateTime(mov.created_at)}</TableCell>
-                  <TableCell>{mov.produtos ? mov.produtos.nome : 'Produto Deletado'}</TableCell>
-                  <TableCell>
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
-                        fontWeight: 'bold',
-                        color: mov.tipo === 'SAIDA' ? 'error.main' : 'success.main'
-                      }}
-                    >
-                      {mov.tipo === 'SAIDA' ? 'Venda' : 'Compra'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right">{mov.quantidade}</TableCell>
-                  <TableCell>{mov.motivo}</TableCell>
-                  <TableCell align="right">
-                    {mov.tipo === 'SAIDA' ? (
-                      <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-                        {formatCurrency(calculateProfit(mov))}
-                      </Typography>
-                    ) : (
-                      '—'
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
+            ))}
           </TableBody>
         </Table>
       </TableContainer>
+
+      <Dialog open={isModalOpen} onClose={handleCloseModal} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {editingId ? 'Editar Produto' : 'Cadastrar Novo Produto'}
+          <IconButton onClick={handleCloseModal}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Box component="form" onSubmit={handleSubmit} id="product-form" sx={{ pt: 2 }}>
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <TextField
+                  label="Nome do Produto"
+                  name="nome"
+                  value={formData.nome}
+                  onChange={handleFormChange}
+                  required 
+                  fullWidth 
+                  variant="standard"
+                  autoFocus
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  type="number" 
+                  label="Preço de Custo (R$)"
+                  name="preco_custo" 
+                  value={formData.preco_custo} 
+                  onChange={handleFormChange}
+                  fullWidth 
+                  variant="standard"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  type="number" 
+                  label="Preço de Venda (R$)"
+                  name="preco_venda" 
+                  value={formData.preco_venda} 
+                  onChange={handleFormChange}
+                  required 
+                  fullWidth 
+                  variant="standard"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  type="number" 
+                  label="Estoque Mínimo"
+                  name="estoque_minimo" 
+                  value={formData.estoque_minimo} 
+                  onChange={handleFormChange}
+                  fullWidth 
+                  variant="standard"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth variant="standard">
+                  <InputLabel id="fornecedor-select-label">Fornecedor</InputLabel>
+                  <Select
+                    labelId="fornecedor-select-label"
+                    name="id_fornecedor"
+                    value={formData.id_fornecedor}
+                    onChange={handleFormChange}
+                    label="Fornecedor"
+                  >
+                    <MenuItem value=""><em>Nenhum</em></MenuItem>
+                    {suppliers.map(supplier => (
+                      <MenuItem key={supplier.id} value={supplier.id}>{supplier.nome_fantasia}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={handleCloseModal} color="secondary">Cancelar</Button>
+          <Button 
+            type="submit" 
+            form="product-form" 
+            variant="contained"
+          >
+            {editingId ? 'Salvar Alterações' : 'Salvar Produto'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
 
-export default StockMovementManager;
+export default ProductManager;

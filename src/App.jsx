@@ -2,7 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom'; 
 import { supabase } from './supabaseClient';
 
-import { Box, Grid, Paper, Typography, CircularProgress, TextField } from '@mui/material';
+import { 
+  Box, 
+  Grid, 
+  Paper, 
+  Typography, 
+  CircularProgress, 
+  TextField 
+} from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
@@ -171,9 +178,6 @@ function App() {
           icon={<AssessmentIcon fontSize="inherit" />}
         />
       </Grid>
-
-      {/* O Gráfico foi removido daqui */}
-
     </Box>
   );
 }

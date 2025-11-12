@@ -30,7 +30,6 @@ function VendasPage() {
     motivo: ''
   });
   
-  // Estado para controlar o "passo" atual
   const [activeStep, setActiveStep] = useState(0);
 
   useEffect(() => {
@@ -48,7 +47,6 @@ function VendasPage() {
     setFormData(prevData => ({ ...prevData, [name]: value }));
   };
 
-  // Funções para o Stepper
   const handleNext = () => {
     setActiveStep((prevActiveStep) => prevActiveStep + 1);
   };
@@ -82,7 +80,6 @@ function VendasPage() {
     }
   };
 
-  // Definição dos passos
   const steps = [
     {
       label: 'Selecionar o Produto Vendido',

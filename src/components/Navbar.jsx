@@ -17,7 +17,6 @@ function Navbar() {
     else navigate('/login');
   };
 
-  // Os estilos foram movidos para o index.css
   return (
     <AppBar position="static">
       <Toolbar>

@@ -2,18 +2,42 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useOutletContext } from 'react-router-dom';
 
-// 1. Recebemos 'dataVersion' e 'onDataChanged' como props do App.jsx
-function ProductManager({ dataVersion, onDataChanged }) {
+import { 
+  Box, 
+  Grid, 
+  Paper, 
+  Typography, 
+  TextField, 
+  Button, 
+  Select, 
+  MenuItem, 
+  FormControl, 
+  InputLabel,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton
+} from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CloseIcon from '@mui/icons-material/Close';
+
+function ProductManager() {
+  const { dataVersion, onDataChanged } = useOutletContext();
   
-  // Estado para a lista final que vai para a tela
   const [productsWithStock, setProductsWithStock] = useState([]);
-  
-  // Estados para os dados brutos
   const [allProducts, setAllProducts] = useState([]);
   const [allMovements, setAllMovements] = useState([]);
-  
-  // Outros estados do componente
   const [suppliers, setSuppliers] = useState([]);
+  
   const [formData, setFormData] = useState({ 
     nome: '', 
     preco_venda: '', 
@@ -21,7 +45,9 @@ function ProductManager({ dataVersion, onDataChanged }) {
     estoque_minimo: 0,
     preco_custo: ''
   });
+  
   const [editingId, setEditingId] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const calculateStock = () => {
@@ -35,21 +61,16 @@ function ProductManager({ dataVersion, onDataChanged }) {
       setProductsWithStock(calculatedData);
     };
     calculateStock();
-  }, [allProducts, allMovements]); // Depende dos dados brutos
+  }, [allProducts, allMovements]);
 
   
-  // EFEITO 2: O BUSCADOR
-  // Roda *somente* quando o 'dataVersion' (o sinal do App.jsx) mudar
   useEffect(() => {
     fetchProducts();
     fetchSuppliers();
     fetchMovements();
-  }, [dataVersion]); // Depende do 'dataVersion'
+  }, [dataVersion]); 
 
   
-  // --- Funções de Busca (Fetch) ---
-
-  // Busca os produtos (tabela 'produtos')
   const fetchProducts = async () => {
     const { data, error } = await supabase.from('produtos').select(`*, fornecedores (nome_fantasia)`);
     if (error) console.error('Erro ao buscar produtos:', error.message);
@@ -63,7 +84,7 @@ function ProductManager({ dataVersion, onDataChanged }) {
   const fetchMovements = async () => {
     const { data, error } = await supabase.from('movimentacoes_estoque').select('id_produto, tipo, quantidade');
     if (error) console.error('Erro ao buscar movimentações:', error.message);
-    else setAllMovements(data); // Salva em 'allMovements'
+    else setAllMovements(data);
   };
 
   const handleFormChange = (event) => {
@@ -89,14 +110,13 @@ function ProductManager({ dataVersion, onDataChanged }) {
       const { error } = await supabase.from('produtos').update(productData).match({ id: editingId });
       if (error) alert('Erro ao atualizar produto: ' + error.message);
       else alert('Produto atualizado com sucesso!');
-      setEditingId(null);
     } else {
       const { error } = await supabase.from('produtos').insert([productData]);
       if (error) alert('Erro ao adicionar produto: ' + error.message);
       else alert('Produto adicionado com sucesso!');
     }
     
-    setFormData({ nome: '', preco_venda: '', id_fornecedor: '', estoque_minimo: 0, preco_custo: '' });
+    handleCloseModal();
     onDataChanged(); 
   };
 
@@ -115,94 +135,190 @@ function ProductManager({ dataVersion, onDataChanged }) {
     }
   };
 
-  const startEditing = (product) => {
-    setEditingId(product.id);
-    setFormData({ 
-      nome: product.nome, 
-      preco_venda: product.preco_venda,
-      id_fornecedor: product.id_fornecedor || '',
-      estoque_minimo: product.estoque_minimo || 0,
-      preco_custo: product.preco_custo || ''
-    });
+  const handleOpenModal = (product = null) => {
+    if (product) {
+      setEditingId(product.id);
+      setFormData({ 
+        nome: product.nome, 
+        preco_venda: product.preco_venda,
+        id_fornecedor: product.id_fornecedor || '',
+        estoque_minimo: product.estoque_minimo || 0,
+        preco_custo: product.preco_custo || ''
+      });
+    } else {
+      setEditingId(null);
+      setFormData({ 
+        nome: '', 
+        preco_venda: '', 
+        id_fornecedor: '', 
+        estoque_minimo: 0,
+        preco_custo: ''
+      });
+    }
+    setIsModalOpen(true);
   };
 
-  const cancelEditing = () => {
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
     setEditingId(null);
-    setFormData({ 
-      nome: '', 
-      preco_venda: '', 
-      id_fornecedor: '', 
-      estoque_minimo: 0,
-      preco_custo: ''
-    });
+  };
+  
+  const formatCurrency = (value) => {
+    if (typeof value !== 'number') return 'R$ 0,00';
+    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
   return (
-    <div>
-      <hr />
-      <h3>{editingId ? 'Editar Produto' : 'Cadastro de Produtos'}</h3>
-      <form onSubmit={handleSubmit}>
-        <label>Nome do Produto:</label>
-        <input type="text" name="nome" value={formData.nome} onChange={handleFormChange} required />
-        
-        <label>Preço de Venda (Ex: 15.00):</label>
-        <input type="number" step="0.01" name="preco_venda" value={formData.preco_venda} onChange={handleFormChange} required />
-        
-        <label>Preço de Custo (Ex: 10.00):</label>
-        <input 
-          type="number" 
-          step="0.01" 
-          name="preco_custo" 
-          value={formData.preco_custo} 
-          onChange={handleFormChange}
-        />
-        
-        <label>Estoque Mínimo:</label>
-        <input type="number" name="estoque_minimo" value={formData.estoque_minimo} onChange={handleFormChange} min="0" />
-        
-        <label>Fornecedor:</label>
-        <select name="id_fornecedor" value={formData.id_fornecedor} onChange={handleFormChange}>
-          <option value="">-- Selecione um fornecedor --</option>
-          {suppliers.map(supplier => (
-            <option key={supplier.id} value={supplier.id}>
-              {supplier.nome_fantasia}
-            </option>
-          ))}
-        </select>
-        
-        <button type="submit">{editingId ? 'Atualizar Produto' : 'Adicionar Produto'}</button>
-        {editingId && (<button type="button" onClick={cancelEditing}>Cancelar Edição</button>)}
-      </form>
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
+          Gestão de Produtos
+        </Typography>
+        <Button 
+          variant="contained" 
+          color="primary" 
+          startIcon={<AddIcon />}
+          onClick={() => handleOpenModal()}
+          sx={{ py: 1.5, px: 3 }}
+        >
+          Novo Produto
+        </Button>
+      </Box>
 
-      <hr />
-      
-      <h3>Produtos em Estoque (com Saldo)</h3>
-      
-      {/* 4. O botão de atualizar não é mais necessário! */}
+      <TableContainer component={Paper} elevation={3} variant="outlined">
+        <Table sx={{ minWidth: 650 }} aria-label="Tabela de Produtos">
+          <TableHead sx={{ bgcolor: 'grey.100' }}>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 'bold' }}>Produto</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }} align="right">Saldo Atual</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }} align="right">Estoque Mínimo</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }} align="right">Preço de Custo</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }} align="right">Preço de Venda</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Fornecedor</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }} align="center">Ações</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {productsWithStock.map((product) => (
+              <TableRow key={product.id} hover>
+                <TableCell component="th" scope="row">
+                  {product.nome}
+                </TableCell>
+                <TableCell align="right">
+                  <Typography variant="body2" sx={{ 
+                    fontWeight: 'bold', 
+                    color: (product.estoque_minimo > 0 && product.estoqueAtual <= product.estoque_minimo) ? 'error.main' : 'text.primary'
+                  }}>
+                    {product.estoqueAtual}
+                    {(product.estoque_minimo > 0 && product.estoqueAtual <= product.estoque_minimo) && ' (BAIXO!)'}
+                  </Typography>
+                </TableCell>
+                <TableCell align="right">{product.estoque_minimo}</TableCell>
+                <TableCell align="right">{formatCurrency(product.preco_custo)}</TableCell>
+                <TableCell align="right">{formatCurrency(product.preco_venda)}</TableCell>
+                <TableCell>{product.fornecedores ? product.fornecedores.nome_fantasia : '—'}</TableCell>
+                <TableCell align="center">
+                  <IconButton color="primary" onClick={() => handleOpenModal(product)}>
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton color="secondary" onClick={() => handleDelete(product.id)}>
+                    <DeleteIcon />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-      <ul>
-        {/* Mapeamos o 'productsWithStock' que é calculado automaticamente */}
-        {productsWithStock.map(product => (
-          <li key={product.id}>
-            {product.nome} - Venda: R$ {product.preco_venda}
-            {product.fornecedores ? ` (Fornecedor: ${product.fornecedores.nome_fantasia})` : ' (Sem fornecedor)'}
-            
-            <strong style={{ fontSize: '1.1em' }}>
-              {' - Saldo: '}{product.estoqueAtual}
-            </strong>
-            
-            {product.estoque_minimo > 0 && product.estoqueAtual <= product.estoque_minimo && (
-              <span style={{ color: 'red', fontWeight: 'bold' }}>
-                {' '}(ESTOQUE BAIXO!)
-              </span>
-            )}
-            
-            <button onClick={() => startEditing(product)}>Editar</button>
-            <button onClick={() => handleDelete(product.id)}>Excluir</button>
-          </li>
-        ))}
-      </ul>
-    </div>
+      <Dialog open={isModalOpen} onClose={handleCloseModal} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {editingId ? 'Editar Produto' : 'Cadastrar Novo Produto'}
+          <IconButton onClick={handleCloseModal}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Box component="form" onSubmit={handleSubmit} id="product-form" sx={{ pt: 2 }}>
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <TextField
+                  label="Nome do Produto"
+                  name="nome"
+                  value={formData.nome}
+                  onChange={handleFormChange}
+                  required 
+                  fullWidth 
+                  variant="standard"
+                  autoFocus
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  type="number" 
+                  label="Preço de Custo (R$)"
+                  name="preco_custo" 
+                  value={formData.preco_custo} 
+                  onChange={handleFormChange}
+                  fullWidth 
+                  variant="standard"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  type="number" 
+                  label="Preço de Venda (R$)"
+                  name="preco_venda" 
+                  value={formData.preco_venda} 
+                  onChange={handleFormChange}
+                  required 
+                  fullWidth 
+                  variant="standard"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  type="number" 
+                  label="Estoque Mínimo"
+                  name="estoque_minimo" 
+                  value={formData.estoque_minimo} 
+                  onChange={handleFormChange}
+                  fullWidth 
+                  variant="standard"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth variant="standard">
+                  <InputLabel id="fornecedor-select-label">Fornecedor</InputLabel>
+                  <Select
+                    labelId="fornecedor-select-label"
+                    name="id_fornecedor"
+                    value={formData.id_fornecedor}
+                    onChange={handleFormChange}
+                    label="Fornecedor"
+                  >
+                    <MenuItem value=""><em>Nenhum</em></MenuItem>
+                    {suppliers.map(supplier => (
+                      <MenuItem key={supplier.id} value={supplier.id}>{supplier.nome_fantasia}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={handleCloseModal} color="secondary">Cancelar</Button>
+          <Button 
+            type="submit" 
+            form="product-form" 
+            variant="contained"
+          >
+            {editingId ? 'Salvar Alterações' : 'Salvar Produto'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 }
 
