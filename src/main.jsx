@@ -1,43 +1,31 @@
-import React, { useState } from 'react';
+// src/main.jsx
+
+import React, { useState } from 'react'; // Importamos o useState
 import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-
+// Nossas páginas e layouts
 import App from './App.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import SignUpPage from './pages/SignUpPage.jsx';
-import MainLayout from './components/MainLayout.jsx'; 
-import ProdutosPage from './pages/ProdutosPage.jsx';
-import FornecedoresPage from './pages/FornecedoresPage.jsx';
-import MovimentacoesPage from './pages/MovimentacoesPage.jsx';
-import ComprasPage from './pages/ComprasPage.jsx';
-import VendasPage from './pages/VendasPage.jsx';
+import MainLayout from './components/MainLayout.jsx'; // Nosso "molde"
+import FornecedoresPage from './pages/FornecedoresPage.jsx'; // Nova página
+import MovimentacoesPage from './pages/MovimentacoesPage.jsx'; // Nova página
 
 import './index.css';
 
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#3498db',
-    },
-    secondary: {
-      main: '#e74c3c',
-    },
-  },
-});
-
+// Hook personalizado para gerenciar o estado global
 function Root() {
+  // A LÓGICA DE ATUALIZAÇÃO (o 'sinal') sobe para o topo!
   const [dataVersion, setDataVersion] = useState(0);
   const refreshData = () => {
     setDataVersion(version => version + 1);
   };
 
+  // Esta é a nova estrutura de rotas (MUITO IMPORTANTE)
   const router = createBrowserRouter([
     {
+      // Rotas de Login/Cadastro (fora do layout principal)
       path: "/login",
       element: <LoginPage />,
     },
@@ -54,12 +42,20 @@ function Root() {
         />
       ),
       children: [
-        { index: true, element: <App /> },
-        { path: "/produtos", element: <ProdutosPage /> },
-        { path: "/fornecedores", element: <FornecedoresPage /> },
-        { path: "/movimentacoes", element: <MovimentacoesPage /> },
-        { path: "/compras", element: <ComprasPage /> },
-        { path: "/vendas", element: <VendasPage /> },
+        // O "filho" da rota "/" será o App.jsx (Dashboard)
+        {
+          index: true, // Isso marca como a página padrão
+          element: <App />,
+        },
+        // As outras páginas "filhas"
+        {
+          path: "/fornecedores",
+          element: <FornecedoresPage />,
+        },
+        {
+          path: "/movimentacoes",
+          element: <MovimentacoesPage />,
+        },
       ],
     },
   ]);

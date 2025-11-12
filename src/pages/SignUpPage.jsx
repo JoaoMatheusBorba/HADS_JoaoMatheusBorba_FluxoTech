@@ -1,35 +1,38 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '../supabaseClient';
+// src/pages/SignUpPage.jsx
 
-import Button from '@mui/material/Button';
-import TextField from '@mui/material/TextField';
-import Container from '@mui/material/Container';
-import Typography from '@mui/material/Typography';
-import Paper from '@mui/material/Paper';
-import Box from '@mui/material/Box';
-import Grid from '@mui/material/Grid';
-import Link from '@mui/material/Link';
+// 1. Importamos o 'useState' para guardar os dados do formulário
+import React, { useState } from 'react';
+
+// 2. Importamos o cliente supabase que criamos
+import { supabase } from '../supabaseClient'; 
+// (Usamos '../' para "voltar" uma pasta, já que estamos em src/pages)
 
 function SignUpPage() {
+  // 3. Criamos os "estados" para email e senha
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
+  // 4. Criamos a função que será chamada no submit do formulário
   const handleSignUp = async (event) => {
-    event.preventDefault();
+    // previne que a página recarregue ao enviar o formulário
+    event.preventDefault(); 
 
     try {
+      // 5. Usamos a função de 'signUp' do Supabase
       const { data, error } = await supabase.auth.signUp({
         email: email,
         password: password,
       });
 
       if (error) {
+        // 6. Se der erro, mostramos no console e em um alerta
+        console.error('Erro no cadastro:', error.message);
         alert('Erro ao cadastrar: ' + error.message);
       } else {
-        alert('Cadastro realizado com sucesso! Pode fazer o login.');
-        navigate('/login');
+        // 7. Se der certo, avisamos o usuário!
+        alert('Cadastro realizado com sucesso! Você pode fazer o login.');
+        // Aqui poderíamos redirecionar o usuário, mas vamos fazer isso depois
       }
     } catch (error) {
       alert('Erro inesperado: ' + error.message);
@@ -37,66 +40,30 @@ function SignUpPage() {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Paper 
-        elevation={6} 
-        sx={{ 
-          marginTop: { xs: 4, md: 8 }, // Margem menor em mobile (xs), maior em desktop (md)
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center', 
-          padding: { xs: 3, md: 4 } // Padding menor em mobile, maior em desktop
-        }}
-      >
-        <Typography component="h1" variant="h5">
-          Cadastro - SIGE
-        </Typography>
-        
-        <Box component="form" onSubmit={handleSignUp} sx={{ mt: 3, width: '100%' }}>
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="email"
-            label="Endereço de Email"
-            name="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            name="password"
-            label="Senha (mínimo 6 caracteres)"
-            type="password"
-            id="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            sx={{ mt: 3, mb: 2 }}
-          >
-            Cadastrar
-          </Button>
-
-          <Grid container justifyContent="flex-end">
-            <Grid item>
-              <Link href="/login" variant="body2">
-                Já tem uma conta? Faça login
-              </Link>
-            </Grid>
-          </Grid>
-
-        </Box>
-      </Paper>
-    </Container>
+    <div>
+      <h2>Cadastro</h2>
+      {/* 8. Ligamos a função handleSignUp ao 'onSubmit' do formulário */}
+      <form onSubmit={handleSignUp}>
+        <label>Email:</label>
+        {/* 9. Ligamos os inputs aos seus respectivos 'estados' */}
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)} // Atualiza o estado 'email'
+          required
+        />
+        <br />
+        <label>Senha:</label>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)} // Atualiza o estado 'password'
+          required
+        />
+        <br />
+        <button type="submit">Cadastrar</button>
+      </form>
+    </div>
   );
 }
 

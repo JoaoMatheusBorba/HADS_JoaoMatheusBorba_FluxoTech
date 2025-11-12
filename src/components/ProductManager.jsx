@@ -2,12 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useOutletContext } from 'react-router-dom';
 
-function ProductManager() {
-  const { dataVersion, onDataChanged } = useOutletContext();
+// 1. Recebemos 'dataVersion' e 'onDataChanged' como props do App.jsx
+function ProductManager({ dataVersion, onDataChanged }) {
   
+  // Estado para a lista final que vai para a tela
   const [productsWithStock, setProductsWithStock] = useState([]);
+  
+  // Estados para os dados brutos
   const [allProducts, setAllProducts] = useState([]);
   const [allMovements, setAllMovements] = useState([]);
+  
+  // Outros estados do componente
   const [suppliers, setSuppliers] = useState([]);
   const [formData, setFormData] = useState({ 
     nome: '', 
@@ -30,14 +35,21 @@ function ProductManager() {
       setProductsWithStock(calculatedData);
     };
     calculateStock();
-  }, [allProducts, allMovements]);
+  }, [allProducts, allMovements]); // Depende dos dados brutos
 
+  
+  // EFEITO 2: O BUSCADOR
+  // Roda *somente* quando o 'dataVersion' (o sinal do App.jsx) mudar
   useEffect(() => {
     fetchProducts();
     fetchSuppliers();
     fetchMovements();
-  }, [dataVersion]); 
+  }, [dataVersion]); // Depende do 'dataVersion'
 
+  
+  // --- Funções de Busca (Fetch) ---
+
+  // Busca os produtos (tabela 'produtos')
   const fetchProducts = async () => {
     const { data, error } = await supabase.from('produtos').select(`*, fornecedores (nome_fantasia)`);
     if (error) console.error('Erro ao buscar produtos:', error.message);
@@ -51,7 +63,7 @@ function ProductManager() {
   const fetchMovements = async () => {
     const { data, error } = await supabase.from('movimentacoes_estoque').select('id_produto, tipo, quantidade');
     if (error) console.error('Erro ao buscar movimentações:', error.message);
-    else setAllMovements(data);
+    else setAllMovements(data); // Salva em 'allMovements'
   };
 
   const handleFormChange = (event) => {
@@ -166,7 +178,10 @@ function ProductManager() {
       
       <h3>Produtos em Estoque (com Saldo)</h3>
       
+      {/* 4. O botão de atualizar não é mais necessário! */}
+
       <ul>
+        {/* Mapeamos o 'productsWithStock' que é calculado automaticamente */}
         {productsWithStock.map(product => (
           <li key={product.id}>
             {product.nome} - Venda: R$ {product.preco_venda}

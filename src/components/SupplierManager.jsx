@@ -7,7 +7,7 @@ function SupplierManager() {
   // Estados para a lista de fornecedores e o formulário
   const [suppliers, setSuppliers] = useState([]);
   const [formData, setFormData] = useState({ 
-    nome_fantasia: '', 
+    nome: '', 
     cnpj_cpf: '', 
     telefone: '' 
   });
@@ -71,7 +71,7 @@ function SupplierManager() {
       }
     }
     // Limpa o formulário
-    setFormData({ nome_fantasia: '', cnpj_cpf: '', telefone: '' });
+    setFormData({ nome: '', cnpj_cpf: '', telefone: '' });
   };
 
   // DELETE: Lógica de Excluir
@@ -95,7 +95,7 @@ function SupplierManager() {
   const startEditing = (supplier) => {
     setEditingId(supplier.id);
     setFormData({
-      nome_fantasia: supplier.nome_fantasia,
+      nome: supplier.nome,
       cnpj_cpf: supplier.cnpj_cpf || '', // Usa '' se for null
       telefone: supplier.telefone || ''  // Usa '' se for null
     });
@@ -104,7 +104,7 @@ function SupplierManager() {
   // Função para cancelar a edição
   const cancelEditing = () => {
     setEditingId(null);
-    setFormData({ nome_fantasia: '', cnpj_cpf: '', telefone: '' });
+    setFormData({ nome: '', cnpj_cpf: '', telefone: '' });
   };
 
   return (
@@ -115,8 +115,8 @@ function SupplierManager() {
         <label>Nome Fantasia:</label>
         <input
           type="text"
-          name="nome_fantasia" // Deve ser igual ao nome da coluna
-          value={formData.nome_fantasia}
+          name="nome" // Deve ser igual ao nome da coluna
+          value={formData.nome}
           onChange={handleFormChange}
           required
         />
@@ -151,7 +151,7 @@ function SupplierManager() {
       <ul>
         {suppliers.map(supplier => (
           <li key={supplier.id}>
-            <strong>{supplier.nome_fantasia}</strong>
+            <strong>{supplier.nome}</strong>
             {' - CNPJ/CPF: '}{supplier.cnpj_cpf}
             {' - Tel: '}{supplier.telefone}
             
