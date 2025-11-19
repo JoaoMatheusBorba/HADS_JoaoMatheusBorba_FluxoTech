@@ -3,26 +3,9 @@ import { supabase } from '../supabaseClient';
 import { useOutletContext } from 'react-router-dom';
 
 import { 
-  Box, 
-  Grid, 
-  Paper, 
-  Typography, 
-  TextField, 
-  Button, 
-  Select, 
-  MenuItem, 
-  FormControl, 
-  InputLabel,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  Box, Grid, Paper, Typography, TextField, Button, Select, MenuItem, 
+  FormControl, InputLabel, Table, TableBody, TableCell, TableContainer, 
+  TableHead, TableRow, Dialog, DialogTitle, DialogContent, DialogActions, 
   IconButton
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
@@ -37,11 +20,13 @@ function ProductManager() {
   const [allProducts, setAllProducts] = useState([]);
   const [allMovements, setAllMovements] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
+  const [categories, setCategories] = useState([]); 
   
   const [formData, setFormData] = useState({ 
     nome: '', 
     preco_venda: '', 
     id_fornecedor: '', 
+    id_categoria: '', 
     estoque_minimo: 0,
     preco_custo: ''
   });
@@ -67,20 +52,33 @@ function ProductManager() {
   useEffect(() => {
     fetchProducts();
     fetchSuppliers();
+    fetchCategories(); 
     fetchMovements();
   }, [dataVersion]); 
 
   
   const fetchProducts = async () => {
-    const { data, error } = await supabase.from('produtos').select(`*, fornecedores (nome_fantasia)`);
+    
+    const { data, error } = await supabase
+      .from('produtos')
+      .select(`*, fornecedores (nome_fantasia), categorias (nome)`);
+      
     if (error) console.error('Erro ao buscar produtos:', error.message);
     else setAllProducts(data);
   };
+
   const fetchSuppliers = async () => {
     const { data, error } = await supabase.from('fornecedores').select('*');
     if (error) console.error('Erro ao buscar fornecedores:', error.message);
     else setSuppliers(data);
   };
+
+  const fetchCategories = async () => {
+    const { data, error } = await supabase.from('categorias').select('*');
+    if (error) console.error('Erro ao buscar categorias:', error.message);
+    else setCategories(data);
+  };
+
   const fetchMovements = async () => {
     const { data, error } = await supabase.from('movimentacoes_estoque').select('id_produto, tipo, quantidade');
     if (error) console.error('Erro ao buscar movimentações:', error.message);
@@ -102,6 +100,7 @@ function ProductManager() {
       nome: formData.nome,
       preco_venda: formData.preco_venda,
       id_fornecedor: formData.id_fornecedor || null,
+      id_categoria: formData.id_categoria || null, 
       estoque_minimo: formData.estoque_minimo || 0,
       preco_custo: formData.preco_custo || 0
     };
@@ -142,6 +141,7 @@ function ProductManager() {
         nome: product.nome, 
         preco_venda: product.preco_venda,
         id_fornecedor: product.id_fornecedor || '',
+        id_categoria: product.id_categoria || '', 
         estoque_minimo: product.estoque_minimo || 0,
         preco_custo: product.preco_custo || ''
       });
@@ -151,7 +151,8 @@ function ProductManager() {
         nome: '', 
         preco_venda: '', 
         id_fornecedor: '', 
-        estoque_minimo: 0,
+        id_categoria: '', 
+        estoque_minimo: 0, 
         preco_custo: ''
       });
     }
@@ -190,6 +191,7 @@ function ProductManager() {
           <TableHead sx={{ bgcolor: 'grey.100' }}>
             <TableRow>
               <TableCell sx={{ fontWeight: 'bold' }}>Produto</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Categoria</TableCell> 
               <TableCell sx={{ fontWeight: 'bold' }} align="right">Saldo Atual</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }} align="right">Estoque Mínimo</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }} align="right">Preço de Custo</TableCell>
@@ -204,6 +206,8 @@ function ProductManager() {
                 <TableCell component="th" scope="row">
                   {product.nome}
                 </TableCell>
+                {/* NOVO: Exibe o nome da categoria */}
+                <TableCell>{product.categorias ? product.categorias.nome : '-'}</TableCell>
                 <TableCell align="right">
                   <Typography variant="body2" sx={{ 
                     fontWeight: 'bold', 
@@ -249,46 +253,32 @@ function ProductManager() {
                   onChange={handleFormChange}
                   required 
                   fullWidth 
-                  variant="standard"
+                  variant="outlined"
                   autoFocus
                 />
               </Grid>
+              
+              {/* NOVO: Campo Categoria */}
               <Grid item xs={12} sm={6}>
-                <TextField
-                  type="number" 
-                  label="Preço de Custo (R$)"
-                  name="preco_custo" 
-                  value={formData.preco_custo} 
-                  onChange={handleFormChange}
-                  fullWidth 
-                  variant="standard"
-                />
+                <FormControl fullWidth variant="outlined">
+                  <InputLabel id="cat-select-label">Categoria</InputLabel>
+                  <Select
+                    labelId="cat-select-label"
+                    name="id_categoria"
+                    value={formData.id_categoria}
+                    onChange={handleFormChange}
+                    label="Categoria"
+                  >
+                    <MenuItem value=""><em>Nenhuma</em></MenuItem>
+                    {categories.map(cat => (
+                      <MenuItem key={cat.id} value={cat.id}>{cat.nome}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
+
               <Grid item xs={12} sm={6}>
-                <TextField
-                  type="number" 
-                  label="Preço de Venda (R$)"
-                  name="preco_venda" 
-                  value={formData.preco_venda} 
-                  onChange={handleFormChange}
-                  required 
-                  fullWidth 
-                  variant="standard"
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  type="number" 
-                  label="Estoque Mínimo"
-                  name="estoque_minimo" 
-                  value={formData.estoque_minimo} 
-                  onChange={handleFormChange}
-                  fullWidth 
-                  variant="standard"
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth variant="standard">
+                <FormControl fullWidth variant="outlined">
                   <InputLabel id="fornecedor-select-label">Fornecedor</InputLabel>
                   <Select
                     labelId="fornecedor-select-label"
@@ -303,6 +293,41 @@ function ProductManager() {
                     ))}
                   </Select>
                 </FormControl>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  type="number" 
+                  label="Preço de Custo (R$)"
+                  name="preco_custo" 
+                  value={formData.preco_custo} 
+                  onChange={handleFormChange}
+                  fullWidth 
+                  variant="outlined"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  type="number" 
+                  label="Preço de Venda (R$)"
+                  name="preco_venda" 
+                  value={formData.preco_venda} 
+                  onChange={handleFormChange}
+                  required 
+                  fullWidth 
+                  variant="outlined"
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  type="number" 
+                  label="Estoque Mínimo"
+                  name="estoque_minimo" 
+                  value={formData.estoque_minimo} 
+                  onChange={handleFormChange}
+                  fullWidth 
+                  variant="outlined"
+                />
               </Grid>
             </Grid>
           </Box>

@@ -11,12 +11,13 @@ import App from './App.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import SignUpPage from './pages/SignUpPage.jsx';
 import MainLayout from './components/MainLayout.jsx'; 
+
 import ProdutosPage from './pages/ProdutosPage.jsx';
 import FornecedoresPage from './pages/FornecedoresPage.jsx';
 import MovimentacoesPage from './pages/MovimentacoesPage.jsx';
 import ComprasPage from './pages/ComprasPage.jsx';
 import VendasPage from './pages/VendasPage.jsx';
-
+import CategoriasPage from './pages/CategoriasPage.jsx'; 
 import './index.css';
 
 const theme = createTheme({
@@ -57,6 +58,7 @@ function Root() {
         { index: true, element: <App /> },
         { path: "/produtos", element: <ProdutosPage /> },
         { path: "/fornecedores", element: <FornecedoresPage /> },
+        { path: "/categorias", element: <CategoriasPage /> }, 
         { path: "/movimentacoes", element: <MovimentacoesPage /> },
         { path: "/compras", element: <ComprasPage /> },
         { path: "/vendas", element: <VendasPage /> },
