@@ -8,19 +8,16 @@ import {
   Typography, 
   TextField, 
   Button, 
-  Select, 
-  MenuItem, 
-  FormControl, 
-  InputLabel,
-  Stepper,
-  Step,
-  StepLabel,
-  StepContent
+  Stepper, 
+  Step, 
+  StepLabel, 
+  StepContent,
+  Autocomplete // <--- IMPORT NOVO
 } from '@mui/material';
 import AddShoppingCartIcon from '@mui/icons-material/AddShoppingCart';
 
 function ComprasPage() {
-  const { onDataChanged } = useOutletContext();
+  const { onDataChanged, showToast } = useOutletContext();
   const navigate = useNavigate();
   
   const [products, setProducts] = useState([]);
@@ -33,32 +30,28 @@ function ComprasPage() {
   const [activeStep, setActiveStep] = useState(0);
 
   useEffect(() => {
+    const fetchProducts = async () => {
+      // Buscamos apenas produtos ATIVOS
+      const { data, error } = await supabase.from('produtos').select('id, nome').eq('ativo', true);
+      if (error) console.error('Erro ao buscar produtos:', error.message);
+      else setProducts(data);
+    };
     fetchProducts();
   }, []); 
 
-  const fetchProducts = async () => {
-    const { data, error } = await supabase.from('produtos').select('id, nome');
-    if (error) console.error('Erro ao buscar produtos:', error.message);
-    else setProducts(data);
-  };
-
+  // Função genérica para campos de texto
   const handleFormChange = (event) => {
     const { name, value } = event.target;
     setFormData(prevData => ({ ...prevData, [name]: value }));
   };
 
-  const handleNext = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep + 1);
-  };
-
-  const handleBack = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep - 1);
-  };
+  const handleNext = () => setActiveStep((prev) => prev + 1);
+  const handleBack = () => setActiveStep((prev) => prev - 1);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!formData.id_produto || formData.quantidade <= 0) {
-      alert('Por favor, selecione um produto e insira uma quantidade válida.');
+      showToast('Preencha os campos corretamente!', 'warning');
       return;
     }
 
@@ -72,9 +65,9 @@ function ComprasPage() {
       } ]);
 
     if (error) {
-      alert('Erro ao registrar a compra: ' + error.message);
+      showToast('Erro ao registrar a compra: ' + error.message, 'error');
     } else {
-      alert('Compra registrada com sucesso!');
+      showToast('Compra registrada com sucesso!', 'success');
       onDataChanged(); 
       navigate('/movimentacoes');
     }
@@ -84,21 +77,25 @@ function ComprasPage() {
     {
       label: 'Selecionar o Produto Comprado',
       content: (
-        <FormControl fullWidth variant="standard" sx={{ mt: 2 }}>
-          <InputLabel id="produto-select-label">Produto Comprado</InputLabel>
-          <Select
-            labelId="produto-select-label"
-            name="id_produto"
-            value={formData.id_produto}
-            onChange={handleFormChange}
-            required
-          >
-            <MenuItem value=""><em>-- Selecione --</em></MenuItem>
-            {products.map(product => (
-              <MenuItem key={product.id} value={product.id}>{product.nome}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <Box sx={{ mt: 2 }}>
+          {/* AQUI ESTÁ A MUDANÇA: Autocomplete em vez de Select */}
+          <Autocomplete
+            options={products}
+            getOptionLabel={(option) => option.nome}
+            value={products.find(p => p.id === formData.id_produto) || null}
+            onChange={(event, newValue) => {
+              setFormData(prev => ({ ...prev, id_produto: newValue ? newValue.id : '' }));
+            }}
+            renderInput={(params) => (
+              <TextField 
+                {...params} 
+                label="Pesquisar Produto..." 
+                variant="standard" 
+                required 
+              />
+            )}
+          />
+        </Box>
       )
     },
     {

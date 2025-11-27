@@ -1,350 +1,308 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { useOutletContext } from 'react-router-dom';
-
 import { 
   Box, Grid, Paper, Typography, TextField, Button, Select, MenuItem, 
   FormControl, InputLabel, Table, TableBody, TableCell, TableContainer, 
   TableHead, TableRow, Dialog, DialogTitle, DialogContent, DialogActions, 
-  IconButton
+  IconButton, TablePagination, InputAdornment, Chip, Tooltip, RadioGroup, FormControlLabel, Radio
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import ArchiveIcon from '@mui/icons-material/Archive';
+import UnarchiveIcon from '@mui/icons-material/Unarchive';
 import CloseIcon from '@mui/icons-material/Close';
+import SearchIcon from '@mui/icons-material/Search';
 
 function ProductManager() {
-  const { dataVersion, onDataChanged } = useOutletContext();
-  
-  const [productsWithStock, setProductsWithStock] = useState([]);
-  const [allProducts, setAllProducts] = useState([]);
-  const [allMovements, setAllMovements] = useState([]);
+  const { dataVersion, onDataChanged, showToast } = useOutletContext();
+  const [products, setProducts] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [suppliers, setSuppliers] = useState([]);
-  const [categories, setCategories] = useState([]); 
+  const [categories, setCategories] = useState([]);
   
   const [formData, setFormData] = useState({ 
-    nome: '', 
-    preco_venda: '', 
-    id_fornecedor: '', 
-    id_categoria: '', 
-    estoque_minimo: 0,
-    preco_custo: ''
+    nome: '', preco_venda: '', id_fornecedor: '', id_categoria: '', estoque_minimo: 0, preco_custo: ''
   });
   
+  // Estados para controle de Modais
   const [editingId, setEditingId] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false); // Modal de Cadastro
+  const [isInactivateModalOpen, setIsInactivateModalOpen] = useState(false); // Modal de Inativação
+
+  // Estados para a lógica de Inativação
+  const [productToInactivate, setProductToInactivate] = useState(null);
+  const [inactivationAction, setInactivationAction] = useState('MANTER'); // MANTER, PERDA, VENDA
+  const [clearancePrice, setClearancePrice] = useState(''); // Preço da venda final
+
+  // Paginação
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   useEffect(() => {
-    const calculateStock = () => {
-      const calculatedData = allProducts.map(product => {
-        const movementsForProduct = allMovements.filter(mov => mov.id_produto === product.id);
-        const totalEntrada = movementsForProduct.filter(mov => mov.tipo === 'ENTRADA').reduce((sum, mov) => sum + mov.quantidade, 0);
-        const totalSaida = movementsForProduct.filter(mov => mov.tipo === 'SAIDA').reduce((sum, mov) => sum + mov.quantidade, 0);
-        const estoqueAtual = totalEntrada - totalSaida;
-        return { ...product, estoqueAtual: estoqueAtual };
-      });
-      setProductsWithStock(calculatedData);
+    const fetchData = async () => {
+      const { data: prods } = await supabase.from('produtos').select(`*, fornecedores(nome_fantasia), categorias(nome)`).order('nome');
+      const { data: movs } = await supabase.from('movimentacoes_estoque').select('id_produto, tipo, quantidade');
+      const { data: sups } = await supabase.from('fornecedores').select('*');
+      const { data: cats } = await supabase.from('categorias').select('*');
+
+      if (prods && movs) {
+        const calculated = prods.map(p => {
+          const pMoves = movs.filter(m => m.id_produto === p.id);
+          const inQ = pMoves.filter(m => m.tipo === 'ENTRADA').reduce((a, b) => a + b.quantidade, 0);
+          const outQ = pMoves.filter(m => m.tipo === 'SAIDA').reduce((a, b) => a + b.quantidade, 0);
+          const saldoFinal = Math.max(0, inQ - outQ);
+          return { ...p, saldo: saldoFinal };
+        });
+        setProducts(calculated);
+      }
+      if (sups) setSuppliers(sups);
+      if (cats) setCategories(cats);
     };
-    calculateStock();
-  }, [allProducts, allMovements]);
+    fetchData();
+  }, [dataVersion]);
 
-  
-  useEffect(() => {
-    fetchProducts();
-    fetchSuppliers();
-    fetchCategories(); 
-    fetchMovements();
-  }, [dataVersion]); 
+  const handleFormChange = (e) => setFormData({...formData, [e.target.name]: e.target.value});
 
-  
-  const fetchProducts = async () => {
+  // Salvar Produto (Novo ou Edição)
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const data = { ...formData, id_fornecedor: formData.id_fornecedor || null, id_categoria: formData.id_categoria || null, preco_custo: formData.preco_custo || 0, ativo: true };
     
-    const { data, error } = await supabase
-      .from('produtos')
-      .select(`*, fornecedores (nome_fantasia), categorias (nome)`);
-      
-    if (error) console.error('Erro ao buscar produtos:', error.message);
-    else setAllProducts(data);
-  };
-
-  const fetchSuppliers = async () => {
-    const { data, error } = await supabase.from('fornecedores').select('*');
-    if (error) console.error('Erro ao buscar fornecedores:', error.message);
-    else setSuppliers(data);
-  };
-
-  const fetchCategories = async () => {
-    const { data, error } = await supabase.from('categorias').select('*');
-    if (error) console.error('Erro ao buscar categorias:', error.message);
-    else setCategories(data);
-  };
-
-  const fetchMovements = async () => {
-    const { data, error } = await supabase.from('movimentacoes_estoque').select('id_produto, tipo, quantidade');
-    if (error) console.error('Erro ao buscar movimentações:', error.message);
-    else setAllMovements(data);
-  };
-
-  const handleFormChange = (event) => {
-    const { name, value } = event.target;
-    setFormData(prevData => ({
-      ...prevData,
-      [name]: value
-    }));
-  };
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    
-    const productData = {
-      nome: formData.nome,
-      preco_venda: formData.preco_venda,
-      id_fornecedor: formData.id_fornecedor || null,
-      id_categoria: formData.id_categoria || null, 
-      estoque_minimo: formData.estoque_minimo || 0,
-      preco_custo: formData.preco_custo || 0
-    };
-
+    let error = null;
     if (editingId) {
-      const { error } = await supabase.from('produtos').update(productData).match({ id: editingId });
-      if (error) alert('Erro ao atualizar produto: ' + error.message);
-      else alert('Produto atualizado com sucesso!');
+      const res = await supabase.from('produtos').update(data).match({ id: editingId });
+      error = res.error;
     } else {
-      const { error } = await supabase.from('produtos').insert([productData]);
-      if (error) alert('Erro ao adicionar produto: ' + error.message);
-      else alert('Produto adicionado com sucesso!');
+      const res = await supabase.from('produtos').insert([data]);
+      error = res.error;
     }
-    
-    handleCloseModal();
-    onDataChanged(); 
+
+    if (error) showToast('Erro: ' + error.message, 'error');
+    else {
+      showToast('Salvo com sucesso!', 'success');
+      handleCloseModal();
+      onDataChanged();
+    }
   };
 
-  const handleDelete = async (productId) => {
-    const { data: movements, error: moveError } = await supabase.from('movimentacoes_estoque').select('id').eq('id_produto', productId).limit(1);
-    if (moveError) { alert('Erro ao verificar movimentações: ' + moveError.message); return; }
-    if (movements && movements.length > 0) { alert('Não é possível excluir este produto, pois ele já possui movimentações de estoque.'); return; }
+  // --- LÓGICA DE INATIVAÇÃO ---
+  
+  // 1. Botão Clicado: Decide se abre o Modal Especial ou só troca o status
+  const handleArchiveClick = async (product) => {
+    // Se estiver inativo e quiser ativar, é direto
+    if (!product.ativo) {
+      await supabase.from('produtos').update({ ativo: true }).eq('id', product.id);
+      showToast('Produto reativado!', 'success');
+      onDataChanged();
+      return;
+    }
 
-    if (window.confirm('Tem certeza que deseja excluir este produto? (Ação irreversível)')) {
-      const { error } = await supabase.from('produtos').delete().match({ id: productId });
-      if (error) alert('Erro ao excluir produto: ' + error.message);
-      else {
-        alert('Produto excluído com sucesso!');
+    // Se for inativar, verifica o estoque e histórico
+    const { data: moves } = await supabase.from('movimentacoes_estoque').select('id').eq('id_produto', product.id).limit(1);
+    const temHistorico = moves && moves.length > 0;
+
+    if (!temHistorico) {
+      // Sem histórico = Excluir direto
+      if (confirm('Este produto nunca foi usado. Deseja excluir permanentemente?')) {
+        await supabase.from('produtos').delete().eq('id', product.id);
+        showToast('Excluído!', 'success');
+        onDataChanged();
+      }
+      return;
+    }
+
+    // Tem histórico. Verifica se tem saldo positivo.
+    if (product.saldo > 0) {
+      // TEM SALDO: Abre o Modal Especial para decidir o destino
+      setProductToInactivate(product);
+      setInactivationAction('MANTER'); // Padrão
+      setClearancePrice(product.preco_venda); // Sugere preço atual
+      setIsInactivateModalOpen(true);
+    } else {
+      // Saldo zero: Só inativa
+      if (confirm('Produto com saldo zerado. Deseja arquivar (inativar)?')) {
+        await supabase.from('produtos').update({ ativo: false }).eq('id', product.id);
+        showToast('Produto arquivado!', 'success');
         onDataChanged();
       }
     }
   };
 
-  const handleOpenModal = (product = null) => {
-    if (product) {
-      setEditingId(product.id);
+  // 2. Confirmação do Modal Especial
+  const confirmInactivation = async () => {
+    const prod = productToInactivate;
+    
+    if (inactivationAction === 'PERDA') {
+      // Gera saída por perda/consumo
+      await supabase.from('movimentacoes_estoque').insert([{
+        id_produto: prod.id, tipo: 'SAIDA', quantidade: prod.saldo, motivo: 'Baixa por Inativação (Consumo/Perda)'
+      }]);
+    } else if (inactivationAction === 'VENDA') {
+      // Gera saída por venda final (precisamos atualizar o preço temporariamente ou calcular na mão, 
+      // mas para simplificar o histórico, vamos registrar a saída e assumir que o preço unitário foi o informado)
+      
+      // Truque: Se o preço de queima for diferente, poderíamos atualizar o produto antes, 
+      // mas vamos apenas registrar a saída com um motivo claro. O valor financeiro usará o preço atual do cadastro.
+      // Se quiser precisão contábil no relatório, o ideal seria atualizar o preço do produto antes.
+      if (parseFloat(clearancePrice) !== prod.preco_venda) {
+          await supabase.from('produtos').update({ preco_venda: clearancePrice }).eq('id', prod.id);
+      }
+
+      await supabase.from('movimentacoes_estoque').insert([{
+        id_produto: prod.id, tipo: 'SAIDA', quantidade: prod.saldo, motivo: 'Baixa por Inativação (Venda Final)'
+      }]);
+    }
+
+    // Finalmente, inativa o produto
+    await supabase.from('produtos').update({ ativo: false }).eq('id', prod.id);
+    
+    showToast('Produto zerado e arquivado com sucesso!', 'success');
+    setIsInactivateModalOpen(false);
+    onDataChanged();
+  };
+
+  // ---------------------------
+
+  const handleOpenModal = (prod = null) => {
+    if (prod) {
+      setEditingId(prod.id);
       setFormData({ 
-        nome: product.nome, 
-        preco_venda: product.preco_venda,
-        id_fornecedor: product.id_fornecedor || '',
-        id_categoria: product.id_categoria || '', 
-        estoque_minimo: product.estoque_minimo || 0,
-        preco_custo: product.preco_custo || ''
+        nome: prod.nome, preco_venda: prod.preco_venda, id_fornecedor: prod.id_fornecedor || '', 
+        id_categoria: prod.id_categoria || '', estoque_minimo: prod.estoque_minimo || 0, preco_custo: prod.preco_custo || '' 
       });
     } else {
       setEditingId(null);
-      setFormData({ 
-        nome: '', 
-        preco_venda: '', 
-        id_fornecedor: '', 
-        id_categoria: '', 
-        estoque_minimo: 0, 
-        preco_custo: ''
-      });
+      setFormData({ nome: '', preco_venda: '', id_fornecedor: '', id_categoria: '', estoque_minimo: 0, preco_custo: '' });
     }
     setIsModalOpen(true);
   };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingId(null);
-  };
-  
-  const formatCurrency = (value) => {
-    if (typeof value !== 'number') return 'R$ 0,00';
-    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
+  const handleCloseModal = () => setIsModalOpen(false);
+  const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const filtered = products.filter(p => p.nome.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
-          Gestão de Produtos
-        </Typography>
-        <Button 
-          variant="contained" 
-          color="primary" 
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenModal()}
-          sx={{ py: 1.5, px: 3 }}
-        >
-          Novo Produto
-        </Button>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+        <Typography variant="h4" fontWeight="bold">Produtos</Typography>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenModal()}>Novo</Button>
       </Box>
-
-      <TableContainer component={Paper} elevation={3} variant="outlined">
-        <Table sx={{ minWidth: 650 }} aria-label="Tabela de Produtos">
+      <Paper elevation={3} sx={{ mb: 2, p: 2 }}><TextField fullWidth variant="outlined" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }} /></Paper>
+      
+      <TableContainer component={Paper} variant="outlined">
+        <Table>
           <TableHead sx={{ bgcolor: 'grey.100' }}>
             <TableRow>
-              <TableCell sx={{ fontWeight: 'bold' }}>Produto</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Categoria</TableCell> 
-              <TableCell sx={{ fontWeight: 'bold' }} align="right">Saldo Atual</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }} align="right">Estoque Mínimo</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }} align="right">Preço de Custo</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }} align="right">Preço de Venda</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Fornecedor</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }} align="center">Ações</TableCell>
+              <TableCell><b>Produto</b></TableCell>
+              <TableCell align="center"><b>Status</b></TableCell>
+              <TableCell><b>Categoria</b></TableCell>
+              <TableCell align="center"><b>Saldo</b></TableCell>
+              <TableCell align="right"><b>Custo</b></TableCell>
+              <TableCell align="right"><b>Venda</b></TableCell>
+              <TableCell align="center"><b>Ações</b></TableCell>
             </TableRow>
           </TableHead>
-          <TableBody>
-            {productsWithStock.map((product) => (
-              <TableRow key={product.id} hover>
-                <TableCell component="th" scope="row">
-                  {product.nome}
-                </TableCell>
-                {/* NOVO: Exibe o nome da categoria */}
-                <TableCell>{product.categorias ? product.categorias.nome : '-'}</TableCell>
-                <TableCell align="right">
-                  <Typography variant="body2" sx={{ 
-                    fontWeight: 'bold', 
-                    color: (product.estoque_minimo > 0 && product.estoqueAtual <= product.estoque_minimo) ? 'error.main' : 'text.primary'
-                  }}>
-                    {product.estoqueAtual}
-                    {(product.estoque_minimo > 0 && product.estoqueAtual <= product.estoque_minimo) && ' (BAIXO!)'}
-                  </Typography>
-                </TableCell>
-                <TableCell align="right">{product.estoque_minimo}</TableCell>
-                <TableCell align="right">{formatCurrency(product.preco_custo)}</TableCell>
-                <TableCell align="right">{formatCurrency(product.preco_venda)}</TableCell>
-                <TableCell>{product.fornecedores ? product.fornecedores.nome_fantasia : '—'}</TableCell>
-                <TableCell align="center">
-                  <IconButton color="primary" onClick={() => handleOpenModal(product)}>
-                    <EditIcon />
+          <TableBody>{filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row) => (
+            <TableRow key={row.id} hover sx={{ opacity: row.ativo ? 1 : 0.6, bgcolor: row.ativo ? 'inherit' : '#fafafa' }}>
+              <TableCell>{row.nome}</TableCell>
+              <TableCell align="center">{row.ativo ? <Chip label="Ativo" color="success" size="small" /> : <Chip label="Inativo" size="small" />}</TableCell>
+              <TableCell>{row.categorias?.nome || '-'}</TableCell>
+              <TableCell align="center"><Typography fontWeight="bold" color={row.saldo <= row.estoque_minimo ? 'error' : 'textPrimary'}>{row.saldo}</Typography></TableCell>
+              <TableCell align="right">{fmt(row.preco_custo)}</TableCell><TableCell align="right">{fmt(row.preco_venda)}</TableCell>
+              <TableCell align="center">
+                <Tooltip title="Editar"><IconButton color="primary" onClick={() => handleOpenModal(row)}><EditIcon /></IconButton></Tooltip>
+                <Tooltip title={row.ativo ? "Inativar" : "Reativar"}>
+                  <IconButton color={row.ativo ? "error" : "success"} onClick={() => handleArchiveClick(row)}>
+                    {row.ativo ? <DeleteIcon /> : <UnarchiveIcon />}
                   </IconButton>
-                  <IconButton color="secondary" onClick={() => handleDelete(product.id)}>
-                    <DeleteIcon />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
+                </Tooltip>
+              </TableCell>
+            </TableRow>
+          ))}</TableBody>
         </Table>
+        <TablePagination rowsPerPageOptions={[10, 25]} component="div" count={filtered.length} rowsPerPage={rowsPerPage} page={page} onPageChange={(e, n) => setPage(n)} onRowsPerPageChange={(e) => setRowsPerPage(parseInt(e.target.value, 10))} />
       </TableContainer>
 
-      <Dialog open={isModalOpen} onClose={handleCloseModal} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          {editingId ? 'Editar Produto' : 'Cadastrar Novo Produto'}
-          <IconButton onClick={handleCloseModal}>
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
+      {/* MODAL DE CADASTRO (Normal) */}
+      <Dialog open={isModalOpen} onClose={handleCloseModal} fullWidth maxWidth="sm">
+        <DialogTitle>{editingId ? 'Editar' : 'Cadastrar'}</DialogTitle>
         <DialogContent>
-          <Box component="form" onSubmit={handleSubmit} id="product-form" sx={{ pt: 2 }}>
-            <Grid container spacing={3}>
-              <Grid item xs={12}>
-                <TextField
-                  label="Nome do Produto"
-                  name="nome"
-                  value={formData.nome}
-                  onChange={handleFormChange}
-                  required 
-                  fullWidth 
-                  variant="outlined"
-                  autoFocus
-                />
-              </Grid>
-              
-              {/* NOVO: Campo Categoria */}
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth variant="outlined">
-                  <InputLabel id="cat-select-label">Categoria</InputLabel>
-                  <Select
-                    labelId="cat-select-label"
-                    name="id_categoria"
-                    value={formData.id_categoria}
-                    onChange={handleFormChange}
-                    label="Categoria"
-                  >
-                    <MenuItem value=""><em>Nenhuma</em></MenuItem>
-                    {categories.map(cat => (
-                      <MenuItem key={cat.id} value={cat.id}>{cat.nome}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth variant="outlined">
-                  <InputLabel id="fornecedor-select-label">Fornecedor</InputLabel>
-                  <Select
-                    labelId="fornecedor-select-label"
-                    name="id_fornecedor"
-                    value={formData.id_fornecedor}
-                    onChange={handleFormChange}
-                    label="Fornecedor"
-                  >
-                    <MenuItem value=""><em>Nenhum</em></MenuItem>
-                    {suppliers.map(supplier => (
-                      <MenuItem key={supplier.id} value={supplier.id}>{supplier.nome_fantasia}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  type="number" 
-                  label="Preço de Custo (R$)"
-                  name="preco_custo" 
-                  value={formData.preco_custo} 
-                  onChange={handleFormChange}
-                  fullWidth 
-                  variant="outlined"
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  type="number" 
-                  label="Preço de Venda (R$)"
-                  name="preco_venda" 
-                  value={formData.preco_venda} 
-                  onChange={handleFormChange}
-                  required 
-                  fullWidth 
-                  variant="outlined"
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  type="number" 
-                  label="Estoque Mínimo"
-                  name="estoque_minimo" 
-                  value={formData.estoque_minimo} 
-                  onChange={handleFormChange}
-                  fullWidth 
-                  variant="outlined"
-                />
-              </Grid>
+          <Box component="form" onSubmit={handleSubmit} id="form" sx={{ pt: 2 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12}><TextField label="Nome" name="nome" value={formData.nome} onChange={handleFormChange} fullWidth required variant="outlined" /></Grid>
+              <Grid item xs={6}><TextField type="number" label="Custo (R$)" name="preco_custo" value={formData.preco_custo} onChange={handleFormChange} fullWidth variant="outlined" /></Grid>
+              <Grid item xs={6}><TextField type="number" label="Venda (R$)" name="preco_venda" value={formData.preco_venda} onChange={handleFormChange} required fullWidth variant="outlined" /></Grid>
+              <Grid item xs={6}><TextField type="number" label="Estoque Mínimo" name="estoque_minimo" value={formData.estoque_minimo} onChange={handleFormChange} fullWidth variant="outlined" /></Grid>
+              <Grid item xs={6}><FormControl fullWidth variant="outlined"><InputLabel>Categoria</InputLabel><Select label="Categoria" name="id_categoria" value={formData.id_categoria} onChange={handleFormChange}><MenuItem value=""><em>Nenhuma</em></MenuItem>{categories.map(c => <MenuItem key={c.id} value={c.id}>{c.nome}</MenuItem>)}</Select></FormControl></Grid>
+              <Grid item xs={12}><FormControl fullWidth variant="outlined"><InputLabel>Fornecedor</InputLabel><Select label="Fornecedor" name="id_fornecedor" value={formData.id_fornecedor} onChange={handleFormChange}><MenuItem value=""><em>Nenhum</em></MenuItem>{suppliers.map(s => <MenuItem key={s.id} value={s.id}>{s.nome_fantasia}</MenuItem>)}</Select></FormControl></Grid>
             </Grid>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleCloseModal} color="secondary">Cancelar</Button>
-          <Button 
-            type="submit" 
-            form="product-form" 
-            variant="contained"
-          >
-            {editingId ? 'Salvar Alterações' : 'Salvar Produto'}
-          </Button>
+        <DialogActions><Button onClick={handleCloseModal}>Cancelar</Button><Button type="submit" form="form" variant="contained">Salvar</Button></DialogActions>
+      </Dialog>
+
+      {/* MODAL ESPECIAL DE INATIVAÇÃO (Destino do Estoque) */}
+      <Dialog open={isInactivateModalOpen} onClose={() => setIsInactivateModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ bgcolor: 'warning.light', color: 'warning.contrastText' }}>
+            Atenção: Produto com Estoque!
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+            <Typography variant="body1" gutterBottom>
+                O produto <strong>{productToInactivate?.nome}</strong> ainda possui <strong>{productToInactivate?.saldo} unidades</strong> em estoque.
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2 }}>
+                O que você deseja fazer com esses itens antes de inativar?
+            </Typography>
+
+            <FormControl component="fieldset">
+                <RadioGroup
+                    value={inactivationAction}
+                    onChange={(e) => setInactivationAction(e.target.value)}
+                >
+                    <FormControlLabel 
+                        value="MANTER" 
+                        control={<Radio />} 
+                        label="Manter saldo (apenas inativar para novas vendas)" 
+                    />
+                    <FormControlLabel 
+                        value="PERDA" 
+                        control={<Radio />} 
+                        label="Baixar como Consumo Próprio / Perda (Custo R$ 0)" 
+                    />
+                    <FormControlLabel 
+                        value="VENDA" 
+                        control={<Radio />} 
+                        label="Realizar Venda Final (Queima de Estoque)" 
+                    />
+                </RadioGroup>
+            </FormControl>
+
+            {inactivationAction === 'VENDA' && (
+                <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+                    <Typography variant="caption">Defina o preço unitário para esta venda final:</Typography>
+                    <TextField 
+                        label="Preço Unitário (R$)" 
+                        type="number" 
+                        fullWidth 
+                        variant="outlined" 
+                        value={clearancePrice}
+                        onChange={(e) => setClearancePrice(e.target.value)}
+                        sx={{ mt: 1 }}
+                    />
+                </Box>
+            )}
+        </DialogContent>
+        <DialogActions>
+            <Button onClick={() => setIsInactivateModalOpen(false)}>Cancelar</Button>
+            <Button variant="contained" color="warning" onClick={confirmInactivation}>
+                Confirmar Inativação
+            </Button>
         </DialogActions>
       </Dialog>
+
     </Box>
   );
 }
-
 export default ProductManager;

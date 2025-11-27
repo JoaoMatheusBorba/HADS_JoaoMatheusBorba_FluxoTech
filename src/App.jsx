@@ -1,248 +1,162 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom'; 
 import { supabase } from './supabaseClient';
-
 import { 
-  Box, 
-  Grid, 
-  Paper, 
-  Typography, 
-  CircularProgress, 
-  TextField,
-  Divider,
-  Avatar
+  Box, Grid, Paper, Typography, CircularProgress, Avatar, Divider, 
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Tooltip
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-
 
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import ShowChartIcon from '@mui/icons-material/ShowChart';
-import BarChartIcon from '@mui/icons-material/BarChart';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import EditIcon from '@mui/icons-material/Edit';
 
 function App() {
-  const { dataVersion } = useOutletContext();
-  
-  const [report, setReport] = useState({ totalReceita: 0, totalCusto: 0, totalLucro: 0, totalVendas: 0 });
-  const [averages, setAverages] = useState({ avgReceitaDia: 0, avgLucroDia: 0 });
+  const { dataVersion, onDataChanged, showToast } = useOutletContext();
+  const [report, setReport] = useState({ totalReceita: 0, totalCusto: 0, totalLucro: 0, totalVendas: 0, saldoAtual: 0, saldoInicial: 0 });
   const [loading, setLoading] = useState(true);
-
-  const [startDate, setStartDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 30);
-    return d;
-  });
+  const [startDate, setStartDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() - 30); return d; });
   const [endDate, setEndDate] = useState(new Date());
 
+  // Estados do Modal de Saldo
+  const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
+  const [newBalance, setNewBalance] = useState('');
+
   useEffect(() => {
-    const fetchSalesAndCalculate = async () => {
-      if (!startDate || !endDate || startDate > endDate) return;
+    const fetchData = async () => {
       setLoading(true);
-
-      const { data: sales, error } = await supabase
-        .from('movimentacoes_estoque')
-        .select(`
-          quantidade,
-          created_at,
-          produtos!inner (preco_venda, preco_custo)
-        `)
-        .eq('tipo', 'SAIDA')
-        .gte('created_at', startDate.toISOString())
-        .lte('created_at', endDate.toISOString());
-
-      if (error) {
-        console.error('Erro ao buscar vendas:', error.message);
-        setLoading(false);
-        return;
+      const { data: config } = await supabase.from('configuracoes').select('valor').eq('chave', 'saldo_inicial').single();
+      const saldoIni = config ? parseFloat(config.valor) : 0;
+      const { data: allMoves } = await supabase.from('movimentacoes_estoque').select(`tipo, quantidade, produtos!inner(preco_venda, preco_custo)`);
+      
+      let caixa = saldoIni;
+      if (allMoves) {
+        allMoves.forEach(m => {
+          const v = m.produtos.preco_venda || 0; const c = m.produtos.preco_custo || 0;
+          if (m.tipo === 'ENTRADA') caixa -= (c * m.quantidade);
+          else caixa += (v * m.quantidade);
+        });
       }
 
-      let totalReceita = 0;
-      let totalCusto = 0;
+      if (!startDate || !endDate) { setLoading(false); return; }
+      const { data: sales } = await supabase.from('movimentacoes_estoque').select(`quantidade, produtos!inner(preco_venda, preco_custo)`).eq('tipo', 'SAIDA').gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
 
-      sales.forEach(sale => {
-        const precoVenda = sale.produtos.preco_venda || 0;
-        const precoCusto = sale.produtos.preco_custo || 0;
-        totalReceita += precoVenda * sale.quantidade;
-        totalCusto += precoCusto * sale.quantidade;
+      let rec = 0, cust = 0;
+      if (sales) {
+        sales.forEach(s => {
+          rec += (s.produtos.preco_venda || 0) * s.quantidade;
+          cust += (s.produtos.preco_custo || 0) * s.quantidade;
+        });
+      }
+      setReport({ 
+        totalReceita: rec, totalCusto: cust, totalLucro: rec - cust, 
+        totalVendas: sales?.length || 0, saldoAtual: caixa, saldoInicial: saldoIni 
       });
-
-      const totalLucro = totalReceita - totalCusto;
-      
-      
-      const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
-
-      setReport({ totalReceita, totalCusto, totalLucro, totalVendas: sales.length });
-      setAverages({
-        avgReceitaDia: totalReceita / diffDays,
-        avgLucroDia: totalLucro / diffDays,
-      });
-
       setLoading(false);
     };
-
-    fetchSalesAndCalculate();
+    fetchData();
   }, [dataVersion, startDate, endDate]);
 
-  const formatCurrency = (value) => {
-    if (typeof value !== 'number') return 'R$ 0,00';
-    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const handleOpenBalanceModal = () => {
+    setNewBalance(report.saldoInicial); // Carrega o saldo inicial atual
+    setIsBalanceModalOpen(true);
   };
 
- 
-  const StatCard = ({ title, value, icon, color, isCurrency = true, subTitle }) => (
-    <Paper 
-      elevation={2} 
-      sx={{ 
-        p: 3, 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        height: '100%',
-        borderRadius: 3,
-        transition: 'transform 0.2s',
-        '&:hover': { transform: 'translateY(-4px)', boxShadow: 6 }
-      }}
-    >
-      <Box>
-        <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
-          {title}
-        </Typography>
-        <Typography variant="h4" sx={{ fontWeight: 'bold', my: 1, color: 'text.primary' }}>
-          {loading ? <CircularProgress size={28} /> : (isCurrency ? formatCurrency(value) : value)}
-        </Typography>
-        {subTitle && (
-          <Typography variant="caption" color="text.secondary">
-            {subTitle}
-          </Typography>
-        )}
-      </Box>
-      <Avatar 
-        variant="rounded"
+  const handleSaveBalance = async () => {
+    const { error } = await supabase.from('configuracoes').update({ valor: newBalance }).eq('chave', 'saldo_inicial');
+    if (error) {
+      if (showToast) showToast('Erro ao atualizar: ' + error.message, 'error');
+      else alert('Erro: ' + error.message);
+    } else {
+      if (showToast) showToast('Saldo Inicial atualizado!', 'success');
+      onDataChanged(); // Recarrega o dashboard
+      setIsBalanceModalOpen(false);
+    }
+  };
+
+  const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  
+  const StatCard = ({ title, value, icon, color, highlight, onDoubleClick, tooltip }) => (
+    <Tooltip title={tooltip || ""} placement="top">
+      <Paper 
+        elevation={highlight ? 8 : 2} 
+        onDoubleClick={onDoubleClick}
         sx={{ 
-          bgcolor: `${color}20`, 
-          color: color,
-          width: 56, 
-          height: 56 
+          p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: 3, 
+          bgcolor: highlight ? 'primary.main' : 'white', color: highlight ? 'white' : 'text.primary',
+          cursor: onDoubleClick ? 'pointer' : 'default',
+          transition: 'transform 0.2s',
+          '&:hover': { transform: 'translateY(-4px)', boxShadow: 6 }
         }}
       >
-        {icon}
-      </Avatar>
-    </Paper>
+        <Box>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, opacity: 0.8 }}>{title}</Typography>
+          <Typography variant="h4" fontWeight="bold">{loading ? <CircularProgress size={20} color="inherit"/> : fmt(value)}</Typography>
+          {onDoubleClick && <Typography variant="caption" sx={{ opacity: 0.7, display: 'block', mt: 0.5 }}>(Duplo clique para ajustar)</Typography>}
+        </Box>
+        <Avatar variant="rounded" sx={{ bgcolor: highlight ? 'rgba(255,255,255,0.2)' : `${color}20`, color: highlight ? 'white' : color }}>{icon}</Avatar>
+      </Paper>
+    </Tooltip>
   );
 
   return (
     <Box>
-     
-      <Box sx={{ 
-        display: 'flex', 
-        flexDirection: { xs: 'column', md: 'row' }, 
-        justifyContent: 'space-between', 
-        alignItems: { xs: 'flex-start', md: 'center' },
-        mb: 4, 
-        gap: 2 
-      }}>
-        <Box>
-          <Typography variant="h4" fontWeight="bold" color="primary.main">
-            Visão Geral
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Acompanhe o desempenho financeiro do seu negócio.
-          </Typography>
-        </Box>
-
-       
-        <Paper elevation={1} sx={{ p: 1, display: 'flex', gap: 2, borderRadius: 2, bgcolor: 'white' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', px: 1 }}>
-            <CalendarTodayIcon color="action" />
-          </Box>
-          <DatePicker
-            label="Início"
-            slotProps={{ textField: { size: 'small', variant: 'standard' } }}
-            value={startDate}
-            onChange={(newValue) => setStartDate(newValue)}
-          />
-          <DatePicker
-            label="Fim"
-            slotProps={{ textField: { size: 'small', variant: 'standard' } }}
-            value={endDate}
-            onChange={(newValue) => setEndDate(newValue)}
-          />
-        </Paper>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 4, flexWrap: 'wrap', gap: 2 }}>
+        <Typography variant="h4" fontWeight="bold" color="primary">Visão Geral</Typography>
+        <Paper sx={{ p: 1, display: 'flex', gap: 2 }}><CalendarTodayIcon color="action" sx={{ my: 'auto', ml: 1 }}/><DatePicker label="Início" value={startDate} onChange={setStartDate} slotProps={{ textField: { size: 'small' } }} /><DatePicker label="Fim" value={endDate} onChange={setEndDate} slotProps={{ textField: { size: 'small' } }} /></Paper>
       </Box>
-
       
-      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: 'text.secondary', mt: 2 }}>
-        Performance Financeira
-      </Typography>
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={4}>
+        <Grid item xs={12}>
           <StatCard 
-            title="Receita Total" 
-            value={report.totalReceita} 
-            icon={<AttachMoneyIcon fontSize="large" />} 
-            color="#27ae60" // Verde
-          />
-        </Grid>
-        <Grid item xs={12} sm={4}>
-          <StatCard 
-            title="Lucro Líquido" 
-            value={report.totalLucro} 
-            icon={<TrendingUpIcon fontSize="large" />} 
-            color="#2980b9" // Azul
-          />
-        </Grid>
-        <Grid item xs={12} sm={4}>
-          <StatCard 
-            title="Custos Totais" 
-            value={report.totalCusto} 
-            icon={<TrendingDownIcon fontSize="large" />} 
-            color="#e74c3c" // Vermelho
+            title="Saldo em Caixa (Disponível)" 
+            value={report.saldoAtual} 
+            icon={<AccountBalanceWalletIcon />} 
+            color="#fff" 
+            highlight 
+            onDoubleClick={handleOpenBalanceModal}
+            tooltip="Dê um duplo clique para ajustar o Saldo Inicial"
           />
         </Grid>
       </Grid>
-
-      <Divider sx={{ mb: 4 }} />
-
       
-      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: 'text.secondary' }}>
-        Indicadores Operacionais
-      </Typography>
+      <Typography variant="h6" gutterBottom>Performance do Período</Typography>
       <Grid container spacing={3}>
-        <Grid item xs={12} sm={4}>
-          <StatCard 
-            title="Volume de Vendas" 
-            value={report.totalVendas} 
-            icon={<ShoppingCartIcon fontSize="large" />} 
-            color="#f39c12" // Laranja
-            isCurrency={false}
-            subTitle="Transações realizadas no período"
-          />
-        </Grid>
-        <Grid item xs={12} sm={4}>
-          <StatCard 
-            title="Média Receita / Dia" 
-            value={averages.avgReceitaDia} 
-            icon={<BarChartIcon fontSize="large" />} 
-            color="#8e44ad" // Roxo
-            subTitle="Faturamento médio diário"
-          />
-        </Grid>
-        <Grid item xs={12} sm={4}>
-          <StatCard 
-            title="Média Lucro / Dia" 
-            value={averages.avgLucroDia} 
-            icon={<ShowChartIcon fontSize="large" />} 
-            color="#16a085" // Verde água
-            subTitle="Lucratividade média diária"
-          />
-        </Grid>
+        <Grid item xs={12} sm={4}><StatCard title="Receita" value={report.totalReceita} icon={<AttachMoneyIcon />} color="#27ae60" /></Grid>
+        <Grid item xs={12} sm={4}><StatCard title="Custos" value={report.totalCusto} icon={<TrendingDownIcon />} color="#e74c3c" /></Grid>
+        <Grid item xs={12} sm={4}><StatCard title="Lucro Líquido" value={report.totalLucro} icon={<TrendingUpIcon />} color="#2980b9" /></Grid>
       </Grid>
+
+      {/* MODAL PARA EDITAR SALDO INICIAL */}
+      <Dialog open={isBalanceModalOpen} onClose={() => setIsBalanceModalOpen(false)}>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <EditIcon color="primary" /> Ajustar Capital Inicial
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Defina o valor inicial com que a empresa começou. O sistema somará as vendas e subtrairá as compras a partir deste valor.
+          </Typography>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Saldo Inicial (R$)"
+            type="number"
+            fullWidth
+            variant="outlined"
+            value={newBalance}
+            onChange={(e) => setNewBalance(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setIsBalanceModalOpen(false)} color="secondary">Cancelar</Button>
+          <Button onClick={handleSaveBalance} variant="contained">Salvar</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
-
 export default App;

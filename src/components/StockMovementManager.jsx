@@ -28,19 +28,16 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 function StockMovementManager() {
   const [movements, setMovements] = useState([]);
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]); 
   const [loading, setLoading] = useState(false);
   
-  
   const [summary, setSummary] = useState({ 
-    count: 0,
-    totalQtyIn: 0, 
-    totalQtyOut: 0, 
-    totalInvestido: 0, 
-    totalLucro: 0      
+    count: 0, totalQtyIn: 0, totalQtyOut: 0, totalInvestido: 0, totalLucro: 0
   });
 
   const [filters, setFilters] = useState({
     productId: '',
+    categoryId: '', 
     type: '',
     startDate: null,
     endDate: null
@@ -48,11 +45,17 @@ function StockMovementManager() {
 
   useEffect(() => {
     fetchProducts();
+    fetchCategories(); 
   }, []); 
 
   const fetchProducts = async () => {
     const { data, error } = await supabase.from('produtos').select('id, nome');
     if (!error) setProducts(data);
+  };
+
+  const fetchCategories = async () => {
+    const { data, error } = await supabase.from('categorias').select('*').order('nome');
+    if (!error) setCategories(data);
   };
 
   const handleFilterChange = (event) => {
@@ -65,15 +68,11 @@ function StockMovementManager() {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
-  
   const calculateLineValue = (mov) => {
     if (!mov.produtos) return 0;
-    
     if (mov.tipo === 'ENTRADA') {
-      
       return mov.quantidade * (mov.produtos.preco_custo || 0);
     } else {
-      
       const lucroUnitario = (mov.produtos.preco_venda || 0) - (mov.produtos.preco_custo || 0);
       return mov.quantidade * lucroUnitario;
     }
@@ -87,7 +86,6 @@ function StockMovementManager() {
 
     data.forEach(mov => {
       const valorLinha = calculateLineValue(mov);
-
       if (mov.tipo === 'ENTRADA') {
         qtyIn += mov.quantidade;
         investido += valorLinha;
@@ -114,15 +112,22 @@ function StockMovementManager() {
       .from('movimentacoes_estoque')
       .select(`
         *, 
-        produtos (
+        produtos!inner (
           nome, 
           preco_venda, 
-          preco_custo
+          preco_custo,
+          id_categoria,
+          categorias (
+            nome
+          )
         )
       `)
       .order('created_at', { ascending: false });
 
     if (filters.productId) query = query.eq('id_produto', filters.productId);
+    
+    if (filters.categoryId) query = query.eq('produtos.id_categoria', filters.categoryId);
+    
     if (filters.type) query = query.eq('tipo', filters.type);
     if (filters.startDate) query = query.gte('created_at', filters.startDate.toISOString());
     if (filters.endDate) query = query.lte('created_at', filters.endDate.toISOString());
@@ -130,7 +135,7 @@ function StockMovementManager() {
     const { data, error } = await query;
 
     if (error) {
-      alert('Erro ao gerar relatório: ' + error.message);
+      alert('Erro: ' + error.message);
     } else {
       setMovements(data);
       calculateSummary(data);
@@ -151,7 +156,6 @@ function StockMovementManager() {
         </Typography>
       </Box>
 
-      {/* ÁREA DE FILTROS */}
       <Paper elevation={2} sx={{ p: 3, mb: 4, borderLeft: '6px solid #3498db' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <FilterAltIcon color="action" sx={{ mr: 1 }} />
@@ -159,7 +163,8 @@ function StockMovementManager() {
         </Box>
         
         <Grid container spacing={3} alignItems="center">
-          <Grid item xs={12} sm={6} md={3}>
+          
+          <Grid item xs={12} sm={6} md={4}>
             <FormControl fullWidth size="small">
               <InputLabel>Produto</InputLabel>
               <Select
@@ -173,7 +178,23 @@ function StockMovementManager() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={6} md={2}>
+
+          <Grid item xs={12} sm={6} md={4}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Categoria</InputLabel>
+              <Select
+                name="categoryId"
+                value={filters.categoryId}
+                label="Categoria"
+                onChange={handleFilterChange}
+              >
+                <MenuItem value=""><em>Todas as Categorias</em></MenuItem>
+                {categories.map(cat => <MenuItem key={cat.id} value={cat.id}>{cat.nome}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12} sm={6} md={4}>
             <FormControl fullWidth size="small">
               <InputLabel>Tipo</InputLabel>
               <Select
@@ -188,7 +209,9 @@ function StockMovementManager() {
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} sm={6} md={2.5}>
+
+          {/* Filtro de Data DE */}
+          <Grid item xs={12} sm={6} md={4}>
             <DatePicker
               label="De"
               slotProps={{ textField: { size: 'small', fullWidth: true } }}
@@ -196,7 +219,9 @@ function StockMovementManager() {
               onChange={(newValue) => setFilters(prev => ({ ...prev, startDate: newValue }))}
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={2.5}>
+
+          {/* Filtro de Data ATÉ */}
+          <Grid item xs={12} sm={6} md={4}>
             <DatePicker
               label="Até"
               slotProps={{ textField: { size: 'small', fullWidth: true } }}
@@ -204,7 +229,9 @@ function StockMovementManager() {
               onChange={(newValue) => setFilters(prev => ({ ...prev, endDate: newValue }))}
             />
           </Grid>
-          <Grid item xs={12} md={2}>
+
+          {/* Botão Gerar */}
+          <Grid item xs={12} md={4}>
             <Button 
               variant="contained" 
               fullWidth 
@@ -213,24 +240,23 @@ function StockMovementManager() {
               startIcon={<SearchIcon />}
               sx={{ height: '40px' }}
             >
-              Gerar
+              Gerar Relatório
             </Button>
           </Grid>
         </Grid>
       </Paper>
 
-      
       {movements.length > 0 && (
         <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid item xs={12} sm={4}>
             <Paper sx={{ p: 2, bgcolor: '#e3f2fd', textAlign: 'center' }}>
-              <Typography variant="subtitle2" color="text.secondary">Registros Encontrados</Typography>
+              <Typography variant="subtitle2" color="text.secondary">Registros</Typography>
               <Typography variant="h4" color="primary.main" fontWeight="bold">{summary.count}</Typography>
             </Paper>
           </Grid>
           <Grid item xs={12} sm={4}>
             <Paper sx={{ p: 2, bgcolor: '#e8f5e9', textAlign: 'center' }}>
-              <Typography variant="subtitle2" color="text.secondary">Total Investido (Compras)</Typography>
+              <Typography variant="subtitle2" color="text.secondary">Investimento Total</Typography>
               <Typography variant="h5" color="success.main" fontWeight="bold">
                 {formatCurrency(summary.totalInvestido)}
               </Typography>
@@ -239,7 +265,7 @@ function StockMovementManager() {
           </Grid>
           <Grid item xs={12} sm={4}>
             <Paper sx={{ p: 2, bgcolor: '#ffebee', textAlign: 'center' }}>
-              <Typography variant="subtitle2" color="text.secondary">Lucro Total (Vendas)</Typography>
+              <Typography variant="subtitle2" color="text.secondary">Lucro Total</Typography>
               <Typography variant="h5" color="error.main" fontWeight="bold">
                 {formatCurrency(summary.totalLucro)}
               </Typography>
@@ -249,7 +275,6 @@ function StockMovementManager() {
         </Grid>
       )}
 
-      {/* TABELA DE DADOS */}
       <TableContainer component={Paper} elevation={3}>
         <Table sx={{ minWidth: 700 }}>
           <TableHead sx={{ bgcolor: '#f5f5f5' }}>
@@ -257,16 +282,17 @@ function StockMovementManager() {
               <TableCell sx={{ fontWeight: 'bold' }}>Data/Hora</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Operação</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Produto</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Categoria</TableCell> {/* NOVO: Coluna */}
               <TableCell align="right" sx={{ fontWeight: 'bold' }}>Qtd.</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Valor Financeiro</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Motivo / Obs.</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold' }}>Financeiro</TableCell>
+              <TableCell sx={{ fontWeight: 'bold' }}>Motivo</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={6} align="center"><CircularProgress /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} align="center"><CircularProgress /></TableCell></TableRow>
             ) : movements.length === 0 ? (
-              <TableRow><TableCell colSpan={6} align="center" sx={{ py: 3 }}>Nenhum registro encontrado. Use os filtros acima.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} align="center" sx={{ py: 3 }}>Nenhum registro encontrado. Use os filtros.</TableCell></TableRow>
             ) : (
               movements.map((mov) => (
                 <TableRow key={mov.id} hover>
@@ -281,13 +307,14 @@ function StockMovementManager() {
                     />
                   </TableCell>
                   <TableCell sx={{ fontWeight: 500 }}>
-                    {mov.produtos ? mov.produtos.nome : 'Produto Excluído'}
+                    {mov.produtos ? mov.produtos.nome : 'Excluído'}
+                  </TableCell>
+                  <TableCell>
+                    {mov.produtos?.categorias ? mov.produtos.categorias.nome : '-'}
                   </TableCell>
                   <TableCell align="right" sx={{ fontSize: '1.1rem' }}>
                     {mov.quantidade}
                   </TableCell>
-                  
-                  
                   <TableCell align="right">
                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                       <Typography 
@@ -296,13 +323,15 @@ function StockMovementManager() {
                         color={mov.tipo === 'ENTRADA' ? 'text.secondary' : 'primary.main'}
                       >
                         {mov.tipo === 'ENTRADA' 
-                          ? `Investido: ${formatCurrency(calculateLineValue(mov))}`
-                          : `Lucro: ${formatCurrency(calculateLineValue(mov))}`
+                          ? `-${formatCurrency(calculateLineValue(mov))}`
+                          : `+${formatCurrency(calculateLineValue(mov))}`
                         }
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {mov.tipo === 'ENTRADA' ? 'Investimento' : 'Lucro'}
                       </Typography>
                     </Box>
                   </TableCell>
-
                   <TableCell sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
                     {mov.motivo || '-'}
                   </TableCell>

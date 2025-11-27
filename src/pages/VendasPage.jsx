@@ -8,19 +8,16 @@ import {
   Typography, 
   TextField, 
   Button, 
-  Select, 
-  MenuItem, 
-  FormControl, 
-  InputLabel,
-  Stepper,
-  Step,
-  StepLabel,
-  StepContent
+  Stepper, 
+  Step, 
+  StepLabel, 
+  StepContent,
+  Autocomplete // <--- IMPORT NOVO
 } from '@mui/material';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
 
 function VendasPage() {
-  const { onDataChanged } = useOutletContext();
+  const { onDataChanged, showToast } = useOutletContext();
   const navigate = useNavigate();
   
   const [products, setProducts] = useState([]);
@@ -33,33 +30,55 @@ function VendasPage() {
   const [activeStep, setActiveStep] = useState(0);
 
   useEffect(() => {
+    const fetchProducts = async () => {
+      // Apenas produtos ativos
+      const { data, error } = await supabase.from('produtos').select('id, nome').eq('ativo', true);
+      if (error) console.error('Erro ao buscar produtos:', error.message);
+      else setProducts(data);
+    };
     fetchProducts();
   }, []); 
-
-  const fetchProducts = async () => {
-    const { data, error } = await supabase.from('produtos').select('id, nome');
-    if (error) console.error('Erro ao buscar produtos:', error.message);
-    else setProducts(data);
-  };
 
   const handleFormChange = (event) => {
     const { name, value } = event.target;
     setFormData(prevData => ({ ...prevData, [name]: value }));
   };
 
-  const handleNext = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep + 1);
-  };
+  const handleNext = () => setActiveStep((prev) => prev + 1);
+  const handleBack = () => setActiveStep((prev) => prev - 1);
 
-  const handleBack = () => {
-    setActiveStep((prevActiveStep) => prevActiveStep - 1);
+  // --- LÓGICA DE SALDO ---
+  const getCurrentStock = async (productId) => {
+    const { data: movements, error } = await supabase
+      .from('movimentacoes_estoque')
+      .select('tipo, quantidade')
+      .eq('id_produto', productId);
+
+    if (error || !movements) return 0;
+
+    let total = 0;
+    movements.forEach(m => {
+      if (m.tipo === 'ENTRADA') total += m.quantidade;
+      if (m.tipo === 'SAIDA') total -= m.quantidade;
+    });
+    return total;
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    
     if (!formData.id_produto || formData.quantidade <= 0) {
-      alert('Por favor, selecione um produto e insira uma quantidade válida.');
+      showToast('Preencha os dados corretamente!', 'warning');
       return;
+    }
+
+    // Verificação de Saldo
+    const estoqueAtual = await getCurrentStock(formData.id_produto);
+    const qtdVenda = parseInt(formData.quantidade);
+
+    if (qtdVenda > estoqueAtual) {
+      showToast(`ERRO: Saldo insuficiente! Você tem apenas ${estoqueAtual} unidades em estoque.`, 'error');
+      return; 
     }
 
     const { error } = await supabase
@@ -67,14 +86,14 @@ function VendasPage() {
       .insert([ {
         id_produto: formData.id_produto,
         tipo: 'SAIDA',
-        quantidade: formData.quantidade,
+        quantidade: qtdVenda,
         motivo: formData.motivo || 'Registo de Venda'
       } ]);
 
     if (error) {
-      alert('Erro ao registrar a venda: ' + error.message);
+      showToast('Erro ao registrar: ' + error.message, 'error');
     } else {
-      alert('Venda registrada com sucesso!');
+      showToast('Venda registrada com sucesso!', 'success');
       onDataChanged(); 
       navigate('/movimentacoes');
     }
@@ -84,21 +103,25 @@ function VendasPage() {
     {
       label: 'Selecionar o Produto Vendido',
       content: (
-        <FormControl fullWidth variant="standard" sx={{ mt: 2 }}>
-          <InputLabel id="produto-select-label">Produto Vendido</InputLabel>
-          <Select
-            labelId="produto-select-label"
-            name="id_produto"
-            value={formData.id_produto}
-            onChange={handleFormChange}
-            required
-          >
-            <MenuItem value=""><em>-- Selecione --</em></MenuItem>
-            {products.map(product => (
-              <MenuItem key={product.id} value={product.id}>{product.nome}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <Box sx={{ mt: 2 }}>
+          {/* AUTCOMPLETE COM PESQUISA */}
+          <Autocomplete
+            options={products}
+            getOptionLabel={(option) => option.nome}
+            value={products.find(p => p.id === formData.id_produto) || null}
+            onChange={(event, newValue) => {
+              setFormData(prev => ({ ...prev, id_produto: newValue ? newValue.id : '' }));
+            }}
+            renderInput={(params) => (
+              <TextField 
+                {...params} 
+                label="Pesquisar Produto..." 
+                variant="standard" 
+                required 
+              />
+            )}
+          />
+        </Box>
       )
     },
     {
