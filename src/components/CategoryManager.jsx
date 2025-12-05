@@ -52,7 +52,6 @@ function CategoryManager() {
 
     if (error) {
         console.error(error);
-        // showToast não é obrigatório aqui se não quiser
     } else {
         setCategories(data || []);
     }

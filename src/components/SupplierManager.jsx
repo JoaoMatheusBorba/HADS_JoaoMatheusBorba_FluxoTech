@@ -26,8 +26,7 @@ function SupplierManager() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
 
-  // NÃO carregamos dados automaticamente no início.
-  // Apenas recarregamos se houver uma alteração E já tivermos feito uma busca.
+ 
   useEffect(() => {
     if (hasSearched) {
       handleSearch();
@@ -80,7 +79,7 @@ function SupplierManager() {
     } else {
       showToast('Sucesso!', 'success');
       handleCloseModal();
-      onDataChanged(); // Isso vai disparar o useEffect para recarregar a lista atualizada
+      onDataChanged(); 
     }
   };
 

@@ -82,7 +82,6 @@ function InventoryReport() {
           <Typography variant="h4" fontWeight="bold">Relatório de Estoque</Typography>
         </Box>
         
-        {/* Card de KPI */}
         <Paper elevation={3} sx={{ p: 2, bgcolor: '#e3f2fd', border: '1px solid #90caf9' }}>
           <Typography variant="caption" color="text.secondary" fontWeight="bold">VALOR EM ESTOQUE</Typography>
           <Typography variant="h5" color="primary.main" fontWeight="bold">
@@ -91,7 +90,6 @@ function InventoryReport() {
         </Paper>
       </Box>
 
-      {/* ÁREA DE FILTROS (Novo Layout) */}
       <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
           <FilterAltIcon color="action" sx={{ mr: 1 }} />
@@ -132,7 +130,6 @@ function InventoryReport() {
         </Grid>
       </Paper>
 
-      {/* TABELA */}
       <TableContainer component={Paper} variant="outlined">
         <Table sx={{ minWidth: 700 }}>
           <TableHead sx={{ bgcolor: 'grey.100' }}>

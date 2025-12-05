@@ -140,12 +140,7 @@ function ProductManager() {
         id_produto: prod.id, tipo: 'SAIDA', quantidade: prod.saldo, motivo: 'Baixa por Inativação (Consumo/Perda)'
       }]);
     } else if (inactivationAction === 'VENDA') {
-      // Gera saída por venda final (precisamos atualizar o preço temporariamente ou calcular na mão, 
-      // mas para simplificar o histórico, vamos registrar a saída e assumir que o preço unitário foi o informado)
-      
-      // Truque: Se o preço de queima for diferente, poderíamos atualizar o produto antes, 
-      // mas vamos apenas registrar a saída com um motivo claro. O valor financeiro usará o preço atual do cadastro.
-      // Se quiser precisão contábil no relatório, o ideal seria atualizar o preço do produto antes.
+     
       if (parseFloat(clearancePrice) !== prod.preco_venda) {
           await supabase.from('produtos').update({ preco_venda: clearancePrice }).eq('id', prod.id);
       }
@@ -243,7 +238,7 @@ function ProductManager() {
         <DialogActions><Button onClick={handleCloseModal}>Cancelar</Button><Button type="submit" form="form" variant="contained">Salvar</Button></DialogActions>
       </Dialog>
 
-      {/* MODAL ESPECIAL DE INATIVAÇÃO (Destino do Estoque) */}
+      {/*  ESPECIAL DE INATIVAÇÃO (Destino do Estoque) */}
       <Dialog open={isInactivateModalOpen} onClose={() => setIsInactivateModalOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ bgcolor: 'warning.light', color: 'warning.contrastText' }}>
             Atenção: Produto com Estoque!

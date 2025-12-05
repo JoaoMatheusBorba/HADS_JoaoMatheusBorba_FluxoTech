@@ -22,7 +22,7 @@ function App() {
   const [startDate, setStartDate] = useState(() => { const d = new Date(); d.setDate(d.getDate() - 30); return d; });
   const [endDate, setEndDate] = useState(new Date());
 
-  // Estados do Modal de Saldo
+  //  Saldo
   const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
   const [newBalance, setNewBalance] = useState('');
 
@@ -131,7 +131,6 @@ function App() {
         <Grid item xs={12} sm={4}><StatCard title="Lucro Líquido" value={report.totalLucro} icon={<TrendingUpIcon />} color="#2980b9" /></Grid>
       </Grid>
 
-      {/* MODAL PARA EDITAR SALDO INICIAL */}
       <Dialog open={isBalanceModalOpen} onClose={() => setIsBalanceModalOpen(false)}>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <EditIcon color="primary" /> Ajustar Capital Inicial

@@ -282,7 +282,7 @@ function StockMovementManager() {
               <TableCell sx={{ fontWeight: 'bold' }}>Data/Hora</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Operação</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Produto</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Categoria</TableCell> {/* NOVO: Coluna */}
+              <TableCell sx={{ fontWeight: 'bold' }}>Categoria</TableCell> 
               <TableCell align="right" sx={{ fontWeight: 'bold' }}>Qtd.</TableCell>
               <TableCell align="right" sx={{ fontWeight: 'bold' }}>Financeiro</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Motivo</TableCell>
